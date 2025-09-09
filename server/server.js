@@ -10,11 +10,18 @@ const morgan = require('morgan');
 // Services optimisés
 const OptimizedDataService = require('./services/OptimizedDataService');
 const CacheService = require('./services/CacheService');
+const QuestSystem = require('./systems/quests');
+const WebSocketManager = require('./websocket/WebSocketManager');
+const RotationService = require('./services/RotationService');
 
 // Routes optimisées
 const optimizedCharacterRoutes = require('./routes/optimized-characters');
 const optimizedItemRoutes = require('./routes/optimized-items');
 const staticRoutes = require('./routes/static');
+const systemsRoutes = require('./routes/systems');
+const talentsRoutes = require('./routes/talents');
+const combatRoutes = require('./routes/combat');
+const authenticateToken = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,6 +29,9 @@ const PORT = process.env.PORT || 3001;
 // Initialisation des services
 let dataService;
 let cacheService;
+let systems;
+let wsManager;
+let rotationService;
 
 // =====================================================
 // MIDDLEWARE DE SÉCURITÉ ET PERFORMANCE
@@ -231,6 +241,15 @@ app.use('/api/items', optimizedItemRoutes);
 
 // Routes des données statiques
 app.use('/api/static', staticRoutes);
+app.use('/api/talents', talentsRoutes);
+app.use('/api', combatRoutes);
+
+// Injecter et monter les systèmes avancés
+app.use((req, res, next) => {
+  req.app.locals.systems = systems;
+  next();
+});
+app.use('/api/systems', systemsRoutes);
 
 // =====================================================
 // ROUTES D'AUTHENTIFICATION (BASIQUES)
@@ -557,6 +576,12 @@ async function startServer() {
     
     // Initialiser les services
     await dataService.initialize();
+
+    // Initialiser les systèmes (ex: quêtes)
+    systems = new Map();
+    systems.set('quests', new QuestSystem(dataService.pool));
+    rotationService = new RotationService(dataService, cacheService, systems.get('quests'));
+    systems.set('rotations', rotationService);
     
     // Démarrer le serveur
     const server = app.listen(PORT, () => {
@@ -573,6 +598,10 @@ async function startServer() {
       console.log(`   ✅ Index composites: Activés`);
       console.log(`   ✅ Pagination intelligente: Activée`);
     });
+
+    // WebSocket
+    wsManager = new WebSocketManager(server);
+    systems.set('websocket', wsManager);
 
     // Gestion gracieuse de l'arrêt
     process.on('SIGTERM', async () => {

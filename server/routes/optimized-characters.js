@@ -1,24 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-
-// Middleware d'authentification
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Token d\'accès requis' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eterna_secret_key');
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(403).json({ error: 'Token invalide' });
-  }
-};
+const authenticateToken = require('../middleware/auth');
+const { trackEconomyChange } = require('../middleware/antiCheat');
 
 // Middleware de validation des paramètres
 const validateCharacterId = (req, res, next) => {
@@ -40,7 +23,7 @@ const injectDataService = (req, res, next) => {
  * GET /api/characters/:id
  * Récupère un personnage complet avec cache optimisé
  */
-router.get('/:id', validateCharacterId, injectDataService, async (req, res) => {
+router.get('/:id', authenticateToken, validateCharacterId, injectDataService, async (req, res) => {
   try {
     const character = await req.dataService.getCharacter(req.characterId);
     
@@ -148,7 +131,7 @@ router.get('/:id', validateCharacterId, injectDataService, async (req, res) => {
  * GET /api/characters/:id/stats
  * Récupère les stats calculées d'un personnage
  */
-router.get('/:id/stats', validateCharacterId, injectDataService, async (req, res) => {
+router.get('/:id/stats', authenticateToken, validateCharacterId, injectDataService, async (req, res) => {
   try {
     const character = await req.dataService.getCharacter(req.characterId);
     
@@ -210,7 +193,7 @@ router.get('/:id/stats', validateCharacterId, injectDataService, async (req, res
  * GET /api/characters/:id/inventory
  * Récupère l'inventaire d'un personnage
  */
-router.get('/:id/inventory', validateCharacterId, injectDataService, async (req, res) => {
+router.get('/:id/inventory', authenticateToken, validateCharacterId, injectDataService, async (req, res) => {
   try {
     const inventory = await req.dataService.getCharacterInventory(req.characterId);
     
@@ -259,7 +242,7 @@ router.get('/:id/inventory', validateCharacterId, injectDataService, async (req,
  * GET /api/characters/:id/equipped
  * Récupère les objets équipés d'un personnage
  */
-router.get('/:id/equipped', validateCharacterId, injectDataService, async (req, res) => {
+router.get('/:id/equipped', authenticateToken, validateCharacterId, injectDataService, async (req, res) => {
   try {
     const equippedItems = await req.dataService.getCharacterEquippedItems(req.characterId);
     
@@ -295,7 +278,7 @@ router.get('/:id/equipped', validateCharacterId, injectDataService, async (req, 
  * PUT /api/characters/:id/equip
  * Équipe un objet
  */
-router.put('/:id/equip', validateCharacterId, injectDataService, async (req, res) => {
+router.put('/:id/equip', authenticateToken, validateCharacterId, injectDataService, trackEconomyChange({ gold: 0, xp: 0 }), async (req, res) => {
   try {
     const { item_id, slot } = req.body;
     
@@ -341,7 +324,7 @@ router.put('/:id/equip', validateCharacterId, injectDataService, async (req, res
  * PUT /api/characters/:id/unequip
  * Déséquipe un objet
  */
-router.put('/:id/unequip', validateCharacterId, injectDataService, async (req, res) => {
+router.put('/:id/unequip', authenticateToken, validateCharacterId, injectDataService, async (req, res) => {
   try {
     const { item_id } = req.body;
     
@@ -386,7 +369,7 @@ router.put('/:id/unequip', validateCharacterId, injectDataService, async (req, r
  * POST /api/characters/:id/level-up
  * Monte de niveau un personnage
  */
-router.post('/:id/level-up', validateCharacterId, injectDataService, async (req, res) => {
+router.post('/:id/level-up', authenticateToken, validateCharacterId, injectDataService, trackEconomyChange({ xp: 1000 }), async (req, res) => {
   try {
     const { experience } = req.body;
     
@@ -460,9 +443,28 @@ router.post('/:id/level-up', validateCharacterId, injectDataService, async (req,
  * GET /api/characters/:id/dungeons
  * Récupère les donjons du personnage
  */
-router.get('/:id/dungeons', validateCharacterId, injectDataService, async (req, res) => {
+router.get('/:id/dungeons', authenticateToken, validateCharacterId, injectDataService, async (req, res) => {
   try {
-    const dungeons = await req.dataService.executePrepared('get_character_dungeons', [req.characterId]);
+    const rotationService = req.app.locals.systems?.get('rotations');
+    let dungeons;
+    if (rotationService) {
+      // Use character to derive level segment and get daily rotation
+      const character = await req.dataService.getCharacter(req.characterId, true);
+      const daily = await rotationService.getDailyDungeonRotation(character);
+      dungeons = daily.map(d => ({
+        dungeon_id: d.id,
+        dungeon_name: d.name,
+        dungeon_display_name: d.display_name,
+        level_requirement: d.level_requirement,
+        difficulty_name: d.difficulty_name,
+        status: 'available',
+        best_time: null,
+        completion_count: null,
+        last_completed: null
+      }));
+    } else {
+      dungeons = await req.dataService.executePrepared('get_character_dungeons', [req.characterId]);
+    }
     
     res.json({
       success: true,

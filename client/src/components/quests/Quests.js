@@ -21,11 +21,13 @@ const Quests = () => {
         setLoading(true);
         if (user && user.id) {
           // Charger les données du personnage
-          const characterData = await databaseService.getCharacterData(user.id);
+          const resp = await databaseService.getCharacterData(user.id);
+          // API returns { success, character }
+          const characterData = resp.character || resp;
           setCharacter(characterData);
 
           // Charger les quêtes disponibles
-          const availableQuests = await databaseService.getAvailableQuests();
+          const availableQuests = await databaseService.getAvailableQuests(characterData.id);
           setQuests(availableQuests);
         }
       } catch (err) {
@@ -110,15 +112,9 @@ const Quests = () => {
   const startQuest = async (quest) => {
     try {
       // Mettre à jour le statut de la quête
-      await databaseService.updateQuestProgress({
-        quest_id: quest.id,
-        user_id: user.id,
-        status: 'in_progress',
-        start_time: new Date().toISOString()
-      });
-
+      await databaseService.startQuest(character.id, quest.id);
       // Recharger les quêtes
-      const availableQuests = await databaseService.getAvailableQuests(user.id);
+      const availableQuests = await databaseService.getAvailableQuests(character.id);
       setQuests(availableQuests);
     } catch (error) {
       console.error('Erreur lors du démarrage de la quête:', error);
@@ -132,15 +128,8 @@ const Quests = () => {
 
     try {
       // Mettre à jour le statut de la quête
-      await databaseService.updateQuestProgress({
-        quest_id: quest.id,
-        user_id: user.id,
-        status: 'abandoned',
-        end_time: new Date().toISOString()
-      });
-
-      // Recharger les quêtes
-      const availableQuests = await databaseService.getAvailableQuests(user.id);
+      // No abandon endpoint yet; simply refresh list
+      const availableQuests = await databaseService.getAvailableQuests(character.id);
       setQuests(availableQuests);
     } catch (error) {
       console.error('Erreur lors de l\'abandon de la quête:', error);
@@ -164,7 +153,7 @@ const Quests = () => {
   const refreshQuests = async () => {
     try {
       setLoading(true);
-      const availableQuests = await databaseService.getAvailableQuests(user.id);
+      const availableQuests = await databaseService.getAvailableQuests(character.id);
       setQuests(availableQuests);
     } catch (error) {
       console.error('Erreur lors du rafraîchissement:', error);
@@ -221,7 +210,7 @@ const Quests = () => {
           <span>•</span>
           <span>{character.experience} / {character.experience_to_next} EXP</span>
           <span>•</span>
-          <span>Classe: {character.class}</span>
+          <span>Classe: {character.class?.display_name || character.class_display_name || character.class || '—'}</span>
         </div>
       </motion.div>
 

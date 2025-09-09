@@ -293,6 +293,20 @@ CREATE TABLE enemies (
 );
 
 -- =====================================================
+-- TABLES DE LOGS DE COMBAT
+-- =====================================================
+
+-- Table des sessions de combat (logs compressés)
+CREATE TABLE IF NOT EXISTS combat_sessions (
+    id SERIAL PRIMARY KEY,
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    dungeon_id SMALLINT NOT NULL REFERENCES dungeons(id),
+    result TEXT NOT NULL,
+    log_gzip BYTEA NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
 -- TABLES DE PROGRESSION
 -- =====================================================
 
@@ -382,6 +396,8 @@ CREATE INDEX idx_items_type_id ON items(type_id);
 CREATE INDEX idx_items_rarity_id ON items(rarity_id);
 CREATE INDEX idx_enemies_rarity_id ON enemies(rarity_id);
 CREATE INDEX idx_dungeons_difficulty_id ON dungeons(difficulty_id);
+CREATE INDEX IF NOT EXISTS idx_combat_sessions_character_id ON combat_sessions(character_id);
+CREATE INDEX IF NOT EXISTS idx_combat_sessions_created_at ON combat_sessions(created_at);
 
 -- Index composites pour les requêtes fréquentes
 CREATE INDEX idx_characters_user_level ON characters(user_id, level);
