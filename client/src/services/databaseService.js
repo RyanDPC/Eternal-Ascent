@@ -72,17 +72,34 @@ class DatabaseService {
   async getCharacterData(characterId) {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}`, {
+      let response = await fetch(`${this.baseURL}/characters/${characterId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
       if (!response.ok) {
+        // Fallback: si 404, tenter de récupérer via le profil utilisateur
+        if (response.status === 404) {
+          const profileRes = await fetch(`${this.baseURL}/user/profile`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            if (profileData && profileData.character) {
+              return profileData.character;
+            }
+          }
+        }
         throw new Error('Échec de récupération des données du personnage');
       }
 
-      return await response.json();
+      const data = await response.json();
+      // Normaliser la forme de retour
+      if (data && data.success && data.character) {
+        return data.character;
+      }
+      return data;
     } catch (error) {
       console.error('Erreur de récupération du personnage:', error);
       throw error;
@@ -127,7 +144,11 @@ class DatabaseService {
         throw new Error('Échec de récupération de l\'inventaire');
       }
 
-      return await response.json();
+      const data = await response.json();
+      // Normaliser pour retourner toujours un tableau d'items
+      if (data && Array.isArray(data)) return data;
+      if (data && data.inventory && Array.isArray(data.inventory)) return data.inventory;
+      return [];
     } catch (error) {
       console.error('Erreur de récupération de l\'inventaire:', error);
       throw error;
@@ -184,12 +205,12 @@ class DatabaseService {
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${this.baseURL}/characters/${characterId}/equip`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ itemId, slot }),
+        body: JSON.stringify({ item_id: itemId, slot }),
       });
 
       if (!response.ok) {
@@ -204,16 +225,16 @@ class DatabaseService {
   }
 
   // Déséquiper un objet
-  async unequipItem(characterId, slot) {
+  async unequipItem(characterId, itemId) {
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${this.baseURL}/characters/${characterId}/unequip`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ slot }),
+        body: JSON.stringify({ item_id: itemId }),
       });
 
       if (!response.ok) {
@@ -230,32 +251,34 @@ class DatabaseService {
   // Récupérer les donjons disponibles
   async getAvailableDungeons() {
     try {
-      const response = await fetch(`${this.baseURL}/dungeons`);
+      const response = await fetch(`${this.baseURL}/static/dungeons`);
 
       if (!response.ok) {
         throw new Error('Échec de récupération des donjons');
       }
 
-      return await response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : (data.dungeons || []);
     } catch (error) {
       console.error('Erreur de récupération des donjons:', error);
-      throw error;
+      return [];
     }
   }
 
   // Récupérer toutes les difficultés
   async getDifficulties() {
     try {
-      const response = await fetch(`${this.baseURL}/difficulties`);
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération des difficultés');
-      }
-
-      return await response.json();
+      // Pas d'endpoint dédié; dériver depuis les donjons statiques
+      const dungeons = await this.getAvailableDungeons();
+      const unique = Array.from(new Set(dungeons.map(d => d.difficulty).filter(Boolean)));
+      return unique.map(name => ({ name, color: '#b8c5d6', icon: '⚪', display_name: name }));
     } catch (error) {
       console.error('Erreur de récupération des difficultés:', error);
-      throw error;
+      return [
+        { name: 'easy', color: '#78c850', icon: '🟢', display_name: 'Facile' },
+        { name: 'normal', color: '#e0c068', icon: '🟡', display_name: 'Normal' },
+        { name: 'hard', color: '#f08030', icon: '🟠', display_name: 'Difficile' }
+      ];
     }
   }
 
@@ -328,16 +351,16 @@ class DatabaseService {
   // Récupérer les quêtes disponibles
   async getAvailableQuests() {
     try {
-      const response = await fetch(`${this.baseURL}/quests`);
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération des quêtes');
-      }
-
-      return await response.json();
+      // Endpoint non exposé côté serveur principal; retourner une liste vide par défaut
+      const response = await fetch(`${this.baseURL}/systems/quests/available/character/0`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : (data.data || []);
     } catch (error) {
       console.error('Erreur de récupération des quêtes:', error);
-      throw error;
+      return [];
     }
   }
 
@@ -463,7 +486,12 @@ class DatabaseService {
   async getGuilds() {
     try {
       console.log('🔍 Tentative de récupération des guildes depuis:', `${this.baseURL}/guilds`);
-      const response = await fetch(`${this.baseURL}/guilds`);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${this.baseURL}/guilds`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       console.log('📡 Réponse reçue:', response.status, response.statusText);
       
       if (!response.ok) {
@@ -483,10 +511,12 @@ class DatabaseService {
   async generateDynamicGuilds(count = 3) {
     try {
       console.log('🎲 Génération de guildes dynamiques:', count);
+      const token = localStorage.getItem('authToken');
       const response = await fetch(`${this.baseURL}/guilds/generate-dynamic`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ count })
       });

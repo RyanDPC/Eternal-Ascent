@@ -283,12 +283,17 @@ const CharacterOverview = ({
               <div className="overview-character-level">
                 <span>Niveau {character.level}</span>
                 <div className="overview-exp-bar">
-                  <div 
-                    className="overview-exp-fill" 
-                    style={{ 
-                      width: `${Math.min((character.experience / character.experience_to_next) * 100, 100)}%` 
-                    }}
-                  ></div>
+                  {(() => {
+                    const exp = Number(character.experience) || 0;
+                    const expNext = Number(character.experience_to_next) || 1;
+                    const pct = isFinite(expNext) && expNext > 0 ? Math.min((exp / expNext) * 100, 100) : 0;
+                    return (
+                      <div
+                        className="overview-exp-fill"
+                        style={{ width: `${pct}%` }}
+                      ></div>
+                    );
+                  })()}
                 </div>
                 <span>{character.experience} / {character.experience_to_next} EXP</span>
                 {character.experience > character.experience_to_next && (
