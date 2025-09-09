@@ -325,39 +325,97 @@ class DatabaseService {
     }
   }
 
-  // Récupérer les quêtes disponibles
-  async getAvailableQuests() {
+  // Récupérer les quêtes disponibles pour un personnage
+  async getAvailableQuests(characterId) {
     try {
-      const response = await fetch(`${this.baseURL}/quests`);
+      if (!characterId) {
+        throw new Error('characterId requis pour récupérer les quêtes disponibles');
+      }
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${this.baseURL}/systems/quests/available/character/${characterId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
       if (!response.ok) {
-        throw new Error('Échec de récupération des quêtes');
+        throw new Error('Échec de récupération des quêtes disponibles');
       }
 
-      return await response.json();
+      const data = await response.json();
+      return data.data ?? data;
     } catch (error) {
       console.error('Erreur de récupération des quêtes:', error);
       throw error;
     }
   }
 
-  // Mettre à jour la progression d'une quête
-  async updateQuestProgress(characterId, questId, progress) {
+  // Mettre à jour la progression d'une quête OU démarrer/abandonner selon payload
+  async updateQuestProgress(payloadOrCharacterId, questId, progress) {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/quests/${questId}`, {
+      // Support de l'ancienne signature (characterId, questId, progress)
+      if (typeof payloadOrCharacterId === 'number') {
+        const characterId = payloadOrCharacterId;
+        const response = await fetch(`${this.baseURL}/characters/${characterId}/quests/${questId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ progress }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Échec de la mise à jour de la progression de la quête');
+        }
+
+        return await response.json();
+      }
+
+      // Nouvelle signature utilisée par le composant Quests
+      const payload = payloadOrCharacterId || {};
+      const characterId = payload.user_id || payload.character_id || payload.characterId;
+      const qid = payload.quest_id || payload.questId;
+      const status = payload.status;
+
+      if (!characterId || !qid) {
+        throw new Error('Paramètres de quête invalides');
+      }
+
+      if (status === 'in_progress') {
+        const response = await fetch(`${this.baseURL}/systems/quests/start`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ characterId, questId: qid })
+        });
+        if (!response.ok) {
+          throw new Error('Échec du démarrage de la quête');
+        }
+        const data = await response.json();
+        return data.data ?? data;
+      }
+
+      if (status === 'abandoned') {
+        // Route non exposée actuellement côté serveur principal
+        throw new Error('Abandon de quête non supporté par l’API actuelle');
+      }
+
+      // Cas générique: progression
+      const response = await fetch(`${this.baseURL}/characters/${characterId}/quests/${qid}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ progress }),
+        body: JSON.stringify({ progress: payload.progress ?? progress })
       });
-
       if (!response.ok) {
-        throw new Error('Échec de la mise à jour de la progression de la quête');
+        throw new Error('Échec de mise à jour de la progression');
       }
-
       return await response.json();
     } catch (error) {
       console.error('Erreur de mise à jour de la progression de la quête:', error);

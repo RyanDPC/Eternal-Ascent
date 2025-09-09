@@ -15,6 +15,7 @@ const CacheService = require('./services/CacheService');
 const optimizedCharacterRoutes = require('./routes/optimized-characters');
 const optimizedItemRoutes = require('./routes/optimized-items');
 const staticRoutes = require('./routes/static');
+const systemsRoutes = require('./routes/systems');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -231,6 +232,9 @@ app.use('/api/items', optimizedItemRoutes);
 
 // Routes des données statiques
 app.use('/api/static', staticRoutes);
+
+// Routes des systèmes (quêtes, pvp, events, etc.)
+app.use('/api/systems', systemsRoutes);
 
 // =====================================================
 // ROUTES D'AUTHENTIFICATION (BASIQUES)
