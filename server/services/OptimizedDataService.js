@@ -1,5 +1,7 @@
 const { Pool } = require('pg');
 const CacheService = require('./CacheService');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Service de données ultra-optimisé pour Eternal Ascent
@@ -634,6 +636,20 @@ class OptimizedDataService {
     // Tester la connexion avec retry
     await this.testConnectionWithRetry();
 
+    // S'assurer que le schéma est compatible (migrations légères)
+    try {
+      await this.ensureSchemaFixes();
+    } catch (e) {
+      console.warn('⚠️ ensureSchemaFixes failed:', e.message);
+    }
+
+    // Créer/mettre à jour les vues et index optimisés si absents
+    try {
+      await this.ensureOptimizedViews();
+    } catch (e) {
+      console.warn('⚠️ ensureOptimizedViews failed:', e.message);
+    }
+
     // Précharger les données statiques
     try {
       await this.cache.preloadStaticData(this);
@@ -642,6 +658,47 @@ class OptimizedDataService {
     }
     
     console.log('✅ OptimizedDataService initialized successfully');
+  }
+
+  /**
+   * Applique des correctifs de schéma légers (sans perte de données)
+   */
+  async ensureSchemaFixes() {
+    // Étendre la précision de critical_damage pour éviter les overflows (DECIMAL(4,2) -> DECIMAL(6,2))
+    const checkQuery = `
+      SELECT numeric_precision, numeric_scale
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'characters' AND column_name = 'critical_damage'
+    `;
+    const result = await this.pool.query(checkQuery);
+    const row = result.rows[0];
+    const needsAlter = !row || (row.numeric_precision && parseInt(row.numeric_precision, 10) <= 4);
+    if (needsAlter) {
+      console.log('🛠️ Altering characters.critical_damage to DECIMAL(6,2) ...');
+      await this.pool.query('ALTER TABLE characters ALTER COLUMN critical_damage TYPE DECIMAL(6,2)');
+      console.log('✅ Column critical_damage altered to DECIMAL(6,2)');
+    }
+  }
+
+  /**
+   * Crée/Met à jour les vues et index optimisés nécessaires
+   */
+  async ensureOptimizedViews() {
+    // Vérifier rapidement si une vue clé existe
+    const existsRes = await this.pool.query(
+      `SELECT 1 FROM information_schema.views WHERE table_schema = 'public' AND table_name = 'items_with_stats'`
+    );
+    if (existsRes.rowCount > 0) {
+      // Toujours réappliquer pour garder à jour
+      console.log('🔁 Refreshing optimized views...');
+    } else {
+      console.log('🧱 Creating optimized views...');
+    }
+
+    const viewsPath = path.join(__dirname, '..', 'database-views.sql');
+    const sql = fs.readFileSync(viewsPath, 'utf8');
+    await this.pool.query(sql);
+    console.log('✅ Optimized views ensured');
   }
 
   /**
