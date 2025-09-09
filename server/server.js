@@ -85,17 +85,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-// Parser JSON avec limite
+// Parser JSON avec limite (laisser body-parser gérer les erreurs de parsing)
 app.use(express.json({ 
-  limit: '10mb',
-  verify: (req, res, buf) => {
-    try {
-      JSON.parse(buf);
-    } catch (e) {
-      res.status(400).json({ error: 'JSON invalide' });
-      throw new Error('Invalid JSON');
-    }
-  }
+  limit: '10mb'
 }));
 
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -129,8 +121,12 @@ function requireAuth(req, res, next) {
 app.use((error, req, res, next) => {
   console.error('❌ Global error:', error);
   
-  if (error.type === 'entity.parse.failed') {
+  if (error && (error.type === 'entity.parse.failed' || error.type === 'entity.verify.failed')) {
     return res.status(400).json({ error: 'Données JSON invalides' });
+  }
+  
+  if (res.headersSent) {
+    return next(error);
   }
   
   res.status(500).json({ 
