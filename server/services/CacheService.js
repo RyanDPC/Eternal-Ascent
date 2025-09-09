@@ -12,24 +12,32 @@ class CacheService {
         password: process.env.REDIS_PASSWORD || null
       };
 
-    this.redis = Redis.createClient({
-      ...redisConfig,
-      retry_strategy: (options) => {
-        if (options.error && options.error.code === 'ECONNREFUSED') {
-          console.log('Redis server refused connection');
-          return new Error('Redis server refused connection');
+    // In-memory fallback store
+    this.memoryStore = new Map();
+
+    try {
+      this.redis = Redis.createClient({
+        ...redisConfig,
+        retry_strategy: (options) => {
+          if (options.error && options.error.code === 'ECONNREFUSED') {
+            console.log('Redis server refused connection');
+            return new Error('Redis server refused connection');
+          }
+          if (options.total_retry_time > 1000 * 60 * 60) {
+            console.log('Redis retry time exhausted');
+            return new Error('Retry time exhausted');
+          }
+          if (options.attempt > 10) {
+            console.log('Redis max retry attempts reached');
+            return undefined;
+          }
+          return Math.min(options.attempt * 100, 3000);
         }
-        if (options.total_retry_time > 1000 * 60 * 60) {
-          console.log('Redis retry time exhausted');
-          return new Error('Retry time exhausted');
-        }
-        if (options.attempt > 10) {
-          console.log('Redis max retry attempts reached');
-          return undefined;
-        }
-        return Math.min(options.attempt * 100, 3000);
-      }
-    });
+      });
+    } catch (e) {
+      this.redis = null;
+      console.warn('⚠️ Redis client not created, using memory fallback');
+    }
 
     // Initialize async methods after connection
     this.getAsync = null;
@@ -37,18 +45,20 @@ class CacheService {
     this.delAsync = null;
     this.flushAsync = null;
 
-    this.redis.on('error', (err) => {
-      console.error('Redis Client Error:', err);
-    });
+    if (this.redis) {
+      this.redis.on('error', (err) => {
+        console.error('Redis Client Error:', err);
+      });
 
-    this.redis.on('connect', () => {
-      console.log('✅ Redis connected successfully');
-      // Initialize async methods after connection
-      this.getAsync = promisify(this.redis.get).bind(this.redis);
-      this.setAsync = promisify(this.redis.set).bind(this.redis);
-      this.delAsync = promisify(this.redis.del).bind(this.redis);
-      this.flushAsync = promisify(this.redis.flushdb).bind(this.redis);
-    });
+      this.redis.on('connect', () => {
+        console.log('✅ Redis connected successfully');
+        // Initialize async methods after connection
+        this.getAsync = promisify(this.redis.get).bind(this.redis);
+        this.setAsync = promisify(this.redis.set).bind(this.redis);
+        this.delAsync = promisify(this.redis.del).bind(this.redis);
+        this.flushAsync = promisify(this.redis.flushdb).bind(this.redis);
+      });
+    }
   }
 
   /**
@@ -56,13 +66,14 @@ class CacheService {
    */
   async cacheStaticData(key, data, ttl = 3600) {
     try {
-      if (!this.setAsync) {
-        console.warn('⚠️ Redis not connected, skipping cache');
-        return;
-      }
       const serializedData = JSON.stringify(data);
-      await this.setAsync(key, serializedData, 'EX', ttl);
-      console.log(`📦 Cached static data: ${key}`);
+      if (this.setAsync) {
+        await this.setAsync(key, serializedData, 'EX', ttl);
+      } else {
+        const expiresAt = Date.now() + ttl * 1000;
+        this.memoryStore.set(key, { value: serializedData, expiresAt });
+      }
+      // console.log(`📦 Cached static data: ${key}`);
     } catch (error) {
       console.error('❌ Error caching static data:', error);
     }
@@ -73,13 +84,19 @@ class CacheService {
    */
   async getStaticData(key) {
     try {
-      if (!this.getAsync) {
-        console.warn('⚠️ Redis not connected, returning null');
-        return null;
+      let cachedData = null;
+      if (this.getAsync) {
+        cachedData = await this.getAsync(key);
+      } else {
+        const entry = this.memoryStore.get(key);
+        if (entry && entry.expiresAt > Date.now()) {
+          cachedData = entry.value;
+        } else if (entry) {
+          this.memoryStore.delete(key);
+        }
       }
-      const cachedData = await this.getAsync(key);
       if (cachedData) {
-        console.log(`📦 Retrieved from cache: ${key}`);
+        // console.log(`📦 Retrieved from cache: ${key}`);
         return JSON.parse(cachedData);
       }
       return null;
@@ -116,7 +133,10 @@ class CacheService {
     ];
     
     for (const key of keys) {
-      await this.delAsync(key);
+      if (this.delAsync) {
+        await this.delAsync(key);
+      }
+      this.memoryStore.delete(key);
     }
     console.log(`🗑️ Invalidated cache for character: ${characterId}`);
   }
@@ -229,7 +249,9 @@ class CacheService {
    * Ferme la connexion Redis
    */
   async close() {
-    await this.redis.quit();
+    if (this.redis) {
+      await this.redis.quit();
+    }
   }
 }
 

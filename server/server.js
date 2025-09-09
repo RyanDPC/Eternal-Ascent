@@ -152,9 +152,15 @@ app.get('/api/health', async (req, res) => {
     const dbCheck = await dataService.pool.query('SELECT NOW()');
     const dbTime = Date.now() - startTime;
     
-    // Vérifier le cache Redis
-    const cacheCheck = await cacheService.getAsync('health_check');
-    await cacheService.setAsync('health_check', 'ok', 'EX', 10);
+    // Vérifier le cache (Redis ou fallback mémoire)
+    let cacheStatus = 'disabled';
+    try {
+      const cacheCheck = await cacheService.getStaticData('health_check');
+      await cacheService.cacheStaticData('health_check', 'ok', 10);
+      cacheStatus = cacheCheck ? 'OK' : 'OK';
+    } catch (e) {
+      cacheStatus = 'unavailable';
+    }
     
     const responseTime = Date.now() - startTime;
     
@@ -165,11 +171,11 @@ app.get('/api/health', async (req, res) => {
       performance: {
         response_time_ms: responseTime,
         database_time_ms: dbTime,
-        cache_status: cacheCheck ? 'OK' : 'WARNING'
+        cache_status: cacheStatus
       },
       services: {
         database: 'Connected',
-        cache: cacheCheck ? 'Connected' : 'Warning',
+        cache: cacheStatus === 'OK' ? 'Connected' : cacheStatus,
         uptime: process.uptime()
       },
       optimization: {

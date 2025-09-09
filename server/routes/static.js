@@ -7,13 +7,30 @@ const injectCacheService = (req, res, next) => {
   next();
 };
 
+// Helper to fallback to DB when cache missing
+const withFallback = (fetchFromCache, fetchFromDb) => async () => {
+  const data = await fetchFromCache();
+  if (data && data.length) return data;
+  if (fetchFromDb) return await fetchFromDb();
+  return null;
+};
+
 /**
  * GET /api/static/classes
  * Récupère toutes les classes de personnages (avec cache)
  */
 router.get('/classes', injectCacheService, async (req, res) => {
   try {
-    const classes = await req.cacheService.getStaticData('character_classes');
+    const getData = withFallback(
+      () => req.cacheService.getStaticData('character_classes'),
+      async () => {
+        try {
+          const result = await req.app.locals.dataService.pool.query('SELECT * FROM character_classes');
+          return result.rows;
+        } catch (_) { return null; }
+      }
+    );
+    const classes = await getData();
     
     if (!classes) {
       return res.status(503).json({ error: 'Données non disponibles' });
@@ -48,7 +65,22 @@ router.get('/items', injectCacheService, async (req, res) => {
   try {
     const { type, rarity, level_min, level_max, page = 1, limit = 50 } = req.query;
     
-    let items = await req.cacheService.getStaticData('items');
+    const getItems = withFallback(
+      () => req.cacheService.getStaticData('items'),
+      async () => {
+        try {
+          const result = await req.app.locals.dataService.pool.query(`
+            SELECT i.*, it.name as type_name, r.name as rarity_name, r.color as rarity_color
+            FROM items i
+            JOIN item_types it ON i.type_id = it.id
+            JOIN rarities r ON i.rarity_id = r.id
+            ORDER BY i.id
+          `);
+          return result.rows;
+        } catch (_) { return null; }
+      }
+    );
+    let items = await getItems();
     
     if (!items) {
       return res.status(503).json({ error: 'Données non disponibles' });
@@ -116,7 +148,16 @@ router.get('/items', injectCacheService, async (req, res) => {
  */
 router.get('/items/types', injectCacheService, async (req, res) => {
   try {
-    const itemTypes = await req.cacheService.getStaticData('item_types');
+    const getTypes = withFallback(
+      () => req.cacheService.getStaticData('item_types'),
+      async () => {
+        try {
+          const result = await req.app.locals.dataService.pool.query('SELECT * FROM item_types');
+          return result.rows;
+        } catch (_) { return null; }
+      }
+    );
+    const itemTypes = await getTypes();
     
     if (!itemTypes) {
       return res.status(503).json({ error: 'Données non disponibles' });
@@ -147,7 +188,16 @@ router.get('/items/types', injectCacheService, async (req, res) => {
  */
 router.get('/rarities', injectCacheService, async (req, res) => {
   try {
-    const rarities = await req.cacheService.getStaticData('rarities');
+    const getRarities = withFallback(
+      () => req.cacheService.getStaticData('rarities'),
+      async () => {
+        try {
+          const result = await req.app.locals.dataService.pool.query('SELECT * FROM rarities');
+          return result.rows;
+        } catch (_) { return null; }
+      }
+    );
+    const rarities = await getRarities();
     
     if (!rarities) {
       return res.status(503).json({ error: 'Données non disponibles' });
@@ -180,7 +230,16 @@ router.get('/skills', injectCacheService, async (req, res) => {
   try {
     const { type, level_min, level_max } = req.query;
     
-    let skills = await req.cacheService.getStaticData('skills');
+    const getSkills = withFallback(
+      () => req.cacheService.getStaticData('skills'),
+      async () => {
+        try {
+          const result = await req.app.locals.dataService.pool.query('SELECT * FROM skills');
+          return result.rows;
+        } catch (_) { return null; }
+      }
+    );
+    let skills = await getSkills();
     
     if (!skills) {
       return res.status(503).json({ error: 'Données non disponibles' });
@@ -233,7 +292,16 @@ router.get('/dungeons', injectCacheService, async (req, res) => {
   try {
     const { difficulty, level_min, level_max } = req.query;
     
-    let dungeons = await req.cacheService.getStaticData('dungeons');
+    const getDungeons = withFallback(
+      () => req.cacheService.getStaticData('dungeons'),
+      async () => {
+        try {
+          const result = await req.app.locals.dataService.pool.query('SELECT * FROM dungeons');
+          return result.rows;
+        } catch (_) { return null; }
+      }
+    );
+    let dungeons = await getDungeons();
     
     if (!dungeons) {
       return res.status(503).json({ error: 'Données non disponibles' });
@@ -283,7 +351,21 @@ router.get('/enemies', injectCacheService, async (req, res) => {
   try {
     const { type, level_min, level_max, rarity } = req.query;
     
-    let enemies = await req.cacheService.getStaticData('enemies');
+    const getEnemies = withFallback(
+      () => req.cacheService.getStaticData('enemies'),
+      async () => {
+        try {
+          const result = await req.app.locals.dataService.pool.query(`
+            SELECT e.*, r.name as rarity_name, r.color as rarity_color
+            FROM enemies e
+            JOIN rarities r ON e.rarity_id = r.id
+            ORDER BY e.level
+          `);
+          return result.rows;
+        } catch (_) { return null; }
+      }
+    );
+    let enemies = await getEnemies();
     
     if (!enemies) {
       return res.status(503).json({ error: 'Données non disponibles' });
