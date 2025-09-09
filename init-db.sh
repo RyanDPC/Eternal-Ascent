@@ -1,28 +1,26 @@
 #!/bin/bash
 
-# Script d'initialisation de la base de données
+# Script d'initialisation de la base de données (Render-compatible, sans psql)
+set -euo pipefail
+
 echo "Initialisation de la base de données..."
 
 # Vérifier que DATABASE_URL est défini
-if [ -z "$DATABASE_URL" ]; then
+if [ -z "${DATABASE_URL:-}" ]; then
   echo "Erreur: DATABASE_URL n'est pas défini."
   exit 1
 fi
 
-# Exécuter les scripts SQL
-if [ -f "/app/server/database-schema.sql" ]; then
-  echo "Exécution du schéma de base de données..."
-  psql "$DATABASE_URL" -f /app/server/database-schema.sql
+# Déterminer le chemin du repo et du dossier server
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVER_DIR="$SCRIPT_DIR/server"
+
+# Si on est dans un conteneur (WORKDIR /app), utiliser le chemin /app/server
+if [ -d "/app/server" ]; then
+  SERVER_DIR="/app/server"
 fi
 
-if [ -f "/app/server/database-views.sql" ]; then
-  echo "Exécution des vues de base de données..."
-  psql "$DATABASE_URL" -f /app/server/database-views.sql
-fi
-
-if [ -f "/app/server/seed-data.js" ]; then
-  echo "Exécution du seed data..."
-  cd /app/server && node seed-data.js
-fi
+echo "Application du schéma, des vues et des seeds via Node..."
+node "$SERVER_DIR/scripts/reset-and-seed.js"
 
 echo "Initialisation terminée !"

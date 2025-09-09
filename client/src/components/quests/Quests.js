@@ -20,13 +20,14 @@ const Quests = () => {
       try {
         setLoading(true);
         if (user && user.id) {
-          // Charger les données du personnage
-          const characterData = await databaseService.getCharacterData(user.id);
-          setCharacter(characterData);
+          // Charger le personnage courant
+          const characterData = await databaseService.getCurrentCharacterData();
+          const characterNormalized = characterData.character || characterData;
+          setCharacter(characterNormalized);
 
           // Charger les quêtes disponibles
           const availableQuests = await databaseService.getAvailableQuests();
-          setQuests(availableQuests);
+          setQuests(Array.isArray(availableQuests) ? availableQuests : []);
         }
       } catch (err) {
         console.error('Erreur lors du chargement des quêtes:', err);
@@ -112,13 +113,13 @@ const Quests = () => {
       // Mettre à jour le statut de la quête
       await databaseService.updateQuestProgress({
         quest_id: quest.id,
-        user_id: user.id,
+        user_id: character?.id,
         status: 'in_progress',
         start_time: new Date().toISOString()
       });
 
       // Recharger les quêtes
-      const availableQuests = await databaseService.getAvailableQuests(user.id);
+      const availableQuests = await databaseService.getAvailableQuests();
       setQuests(availableQuests);
     } catch (error) {
       console.error('Erreur lors du démarrage de la quête:', error);
@@ -134,13 +135,13 @@ const Quests = () => {
       // Mettre à jour le statut de la quête
       await databaseService.updateQuestProgress({
         quest_id: quest.id,
-        user_id: user.id,
+        user_id: character?.id,
         status: 'abandoned',
         end_time: new Date().toISOString()
       });
 
       // Recharger les quêtes
-      const availableQuests = await databaseService.getAvailableQuests(user.id);
+      const availableQuests = await databaseService.getAvailableQuests();
       setQuests(availableQuests);
     } catch (error) {
       console.error('Erreur lors de l\'abandon de la quête:', error);
@@ -164,7 +165,7 @@ const Quests = () => {
   const refreshQuests = async () => {
     try {
       setLoading(true);
-      const availableQuests = await databaseService.getAvailableQuests(user.id);
+      const availableQuests = await databaseService.getAvailableQuests(character?.id || user.id);
       setQuests(availableQuests);
     } catch (error) {
       console.error('Erreur lors du rafraîchissement:', error);
@@ -221,7 +222,7 @@ const Quests = () => {
           <span>•</span>
           <span>{character.experience} / {character.experience_to_next} EXP</span>
           <span>•</span>
-          <span>Classe: {character.class}</span>
+          <span>Classe: {character.class_display_name || character.class_name || character.class || 'Inconnue'}</span>
         </div>
       </motion.div>
 
@@ -244,7 +245,7 @@ const Quests = () => {
           <Clock size={24} />
           <div className="stat-info">
             <div className="stat-value">
-              {quests.filter(q => getQuestStatus(q) === 'in_progress').length}
+              {Array.isArray(quests) ? quests.filter(q => getQuestStatus(q) === 'in_progress').length : 0}
             </div>
             <div className="stat-label">En cours</div>
           </div>
@@ -254,7 +255,7 @@ const Quests = () => {
           <CheckCircle size={24} />
           <div className="stat-info">
             <div className="stat-value">
-              {quests.filter(q => getQuestStatus(q) === 'completed').length}
+              {Array.isArray(quests) ? quests.filter(q => getQuestStatus(q) === 'completed').length : 0}
             </div>
             <div className="stat-label">Terminées</div>
           </div>
@@ -264,7 +265,7 @@ const Quests = () => {
           <Star size={24} />
           <div className="stat-info">
             <div className="stat-value">
-              {quests.filter(q => q.rarity === 'legendary').length}
+              {Array.isArray(quests) ? quests.filter(q => q.rarity === 'legendary').length : 0}
             </div>
             <div className="stat-label">Légendaires</div>
           </div>
@@ -290,7 +291,7 @@ const Quests = () => {
 
       {/* Grille des quêtes */}
       <div className="quests-grid">
-        {quests.map((quest, index) => {
+        {(Array.isArray(quests) ? quests : []).map((quest, index) => {
           const status = getQuestStatus(quest);
           
           return (

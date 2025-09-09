@@ -91,6 +91,258 @@
   gap: 1.5rem;
 }
 
+/* Layout horizontal pour Combat Stats et Informations */
+.combat-and-info-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  align-items: start;
+}
+
+.combat-stats-section {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.08) 0%, 
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.combat-stats-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, 
+    #e74c3c 0%, 
+    #f39c12 25%, 
+    #9b59b6 50%, 
+    #3498db 75%, 
+    #2ecc71 100%
+  );
+}
+
+.combat-stats-section h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem 0;
+  color: #e74c3c;
+  text-shadow: 0 0 10px rgba(231, 76, 60, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.combat-stats-section h3 svg {
+  filter: drop-shadow(0 0 8px rgba(231, 76, 60, 0.5));
+}
+
+.combat-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.combat-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.combat-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.1), 
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.combat-stat-card:hover::before {
+  left: 100%;
+}
+
+.combat-stat-card:hover {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.15) 0%, 
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.combat-stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+.combat-stat-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.combat-stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.3rem;
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+  line-height: 1.3;
+}
+
+.combat-stat-label {
+  font-size: 0.9rem;
+  color: #b8c5d1;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.info-section {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.08) 0%, 
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.info-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, 
+    #4a90e2 0%, 
+    #9b59b6 25%, 
+    #f39c12 50%, 
+    #e74c3c 75%, 
+    #2ecc71 100%
+  );
+}
+
+.info-section h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem 0;
+  color: #4a90e2;
+  text-shadow: 0 0 10px rgba(74, 144, 226, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.info-section h3 svg {
+  filter: drop-shadow(0 0 8px rgba(74, 144, 226, 0.5));
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1rem;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  min-height: 80px;
+  justify-content: center;
+}
+
+.info-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.1), 
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.info-item:hover::before {
+  left: 100%;
+}
+
+.info-item:hover {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.15) 0%, 
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.info-item strong {
+  color: #b8c5d1;
+  font-weight: 500;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-item span:last-child {
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
 /* ========================================
    CHARACTER INFO SECTION
    ======================================== */
@@ -383,6 +635,11 @@
   padding: 1.5rem;
 }
 
+/* Utiliser la même grille que les stats principales pour l'info en mode cartes */
+.overview-additional-as-cards .overview-stats-grid.overview-main-stats {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .overview-character-additional-info h3 {
   font-size: 1.25rem;
   font-weight: 700;
@@ -431,6 +688,9 @@
   .overview-stats-grid.overview-main-stats {
     grid-template-columns: repeat(4, 1fr);
   }
+  .overview-additional-as-cards .overview-stats-grid.overview-main-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
   
   .overview-stats-grid.overview-secondary-stats {
     grid-template-columns: repeat(2, 1fr);
@@ -446,6 +706,11 @@
   
   .character-main-section,
   .character-side-section {
+    gap: 1.25rem;
+  }
+  
+  .combat-and-info-container {
+    grid-template-columns: 1fr;
     gap: 1.25rem;
   }
 }
@@ -466,6 +731,9 @@
   .overview-stats-grid.overview-main-stats {
     grid-template-columns: repeat(2, 1fr);
   }
+  .overview-additional-as-cards .overview-stats-grid.overview-main-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
   
   .overview-stats-grid.overview-secondary-stats {
     grid-template-columns: 1fr;
@@ -478,6 +746,10 @@
   
   .overview-info-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -534,6 +806,15 @@
   .overview-stat-icon {
     width: 35px;
     height: 35px;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .info-item {
+    min-height: 70px;
+    padding: 0.75rem;
   }
 }
 

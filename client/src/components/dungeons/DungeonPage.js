@@ -26,7 +26,8 @@ const DungeonPage = () => {
     try {
       const userData = databaseService.getStoredUserData();
       if (userData) {
-        const character = await databaseService.getCharacterData(userData.id);
+        const current = await databaseService.getCurrentCharacterData();
+        const character = current.character || current;
         setCharacterData(character);
       }
     } catch (error) {

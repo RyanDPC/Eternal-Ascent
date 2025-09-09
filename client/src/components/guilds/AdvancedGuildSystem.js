@@ -85,8 +85,8 @@ const AdvancedGuildSystem = () => {
         
         // Charger les données du personnage si connecté
         if (user && user.id) {
-          const characterData = await databaseService.getCharacterData(user.id);
-          setCharacter(characterData);
+          const current = await databaseService.getCurrentCharacterData();
+          setCharacter(current.character || current);
         }
       } catch (err) {
         console.error('Erreur lors du chargement des guildes:', err);

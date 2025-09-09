@@ -207,7 +207,8 @@ const CombatSystem = ({ dungeon, onCombatEnd, characterData }) => {
     // Restaurer les stats actuelles du personnage depuis la DB
     if (character.id) {
       try {
-        const characterData = await databaseService.getCharacterData(character.id);
+        const current = await databaseService.getCurrentCharacterData();
+        const characterData = current.character || current;
         setCharacter(prev => ({ 
           ...prev, 
           currentHealth: characterData.health,

@@ -10,17 +10,19 @@ import './Dashboard.css';
 const Dashboard = () => {
   const { user } = useAuth();
   const [character, setCharacter] = useState(null);
+  const [characterId, setCharacterId] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [finalStats, setFinalStats] = useState(null);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [forceReflow, setForceReflow] = useState(false);
 
 
   useEffect(() => {
     const loadCharacterData = async () => {
       // Éviter les appels multiples
-      if (hasLoaded || !user || !user.id) {
+      if (hasLoaded || !user) {
         return;
       }
       
@@ -28,39 +30,59 @@ const Dashboard = () => {
         setLoading(true);
         setHasLoaded(true);
         
+        // Récupérer les données du personnage et du profil
         const [characterData, profileData] = await Promise.all([
-          databaseService.getCharacterData(user.id),
+          databaseService.getCurrentCharacterData(),
           databaseService.getUserProfile()
         ]);
         
+        // Normaliser les données du personnage
+        const character = characterData.character || characterData;
+        
+        // Stocker l'ID du personnage pour les appels futurs
+        setCharacterId(character.id);
+        
         // Récupérer les stats finales avec équipement
         try {
-          const statsResponse = await fetch(`/api/characters/${user.id}/stats`, {
+          const statsResponse = await fetch(`${databaseService.baseURL}/characters/${character.id}/stats`, {
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
             }
           });
           
           if (statsResponse.ok) {
             const statsData = await statsResponse.json();
-            // Fusionner les données du personnage avec les stats finales
+            const calculated = statsData.stats?.calculated || null;
             const characterWithFinalStats = {
-              ...characterData,
+              ...character,
               ...statsData.final_stats,
               equipped_items: statsData.equipped_items
             };
             setCharacter(characterWithFinalStats);
-            setFinalStats(statsData.final_stats);
+            setFinalStats(calculated);
           } else {
             console.warn('Stats API non disponible, utilisation des stats de base');
-            setCharacter(characterData);
+            setCharacter(character);
           }
         } catch (statsError) {
           console.warn('Erreur stats API, utilisation des stats de base:', statsError);
-          setCharacter(characterData);
+          setCharacter(character);
         }
         
         setUserProfile(profileData);
+        
+        // Forcer le rechargement des styles après le chargement des données
+        setTimeout(() => {
+          setForceReflow(true);
+          // Forcer le recalcul de la grille
+          const grids = document.querySelectorAll('.stats-grid');
+          grids.forEach(grid => {
+            grid.style.display = 'none';
+            grid.offsetHeight; // Force reflow
+            grid.style.display = 'grid';
+          });
+          setTimeout(() => setForceReflow(false), 100);
+        }, 50);
       } catch (err) {
         console.error('Erreur lors du chargement du personnage:', err);
         setError('Impossible de charger les données du personnage');
@@ -75,23 +97,29 @@ const Dashboard = () => {
   // Fonction pour recharger les stats après équipement/déséquipement
   const reloadStats = async () => {
     try {
-      if (user && user.id) {
-        const statsResponse = await fetch(`/api/characters/${user.id}/stats`, {
+      if (characterId) {
+        const statsResponse = await fetch(`${databaseService.baseURL}/characters/${characterId}/stats`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
           }
         });
         
         if (statsResponse.ok) {
           const statsData = await statsResponse.json();
-          setFinalStats(statsData.final_stats);
-          
+          const calculated = statsData.stats?.calculated || null;
+          setFinalStats(calculated);
           // Mettre à jour le personnage avec les nouvelles stats
           setCharacter(prevCharacter => ({
             ...prevCharacter,
-            ...statsData.final_stats,
-            equipped_items: statsData.equipped_items
+            stats: {
+              ...prevCharacter?.stats,
+              calculated: calculated || prevCharacter?.stats?.calculated
+            }
           }));
+          
+          // Forcer le rechargement des styles
+          setForceReflow(true);
+          setTimeout(() => setForceReflow(false), 100);
         }
       }
     } catch (err) {
@@ -99,22 +127,75 @@ const Dashboard = () => {
     }
   };
 
+  // Forcer le rechargement des styles quand la page devient visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        setForceReflow(true);
+        // Forcer le recalcul de la grille
+        const grids = document.querySelectorAll('.stats-grid');
+        grids.forEach(grid => {
+          grid.style.display = 'none';
+          grid.offsetHeight; // Force reflow
+          grid.style.display = 'grid';
+        });
+        setTimeout(() => setForceReflow(false), 100);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // Forcer le recalcul de la grille quand les données changent
+  useEffect(() => {
+    if (character) {
+      // Petit délai pour laisser le DOM se mettre à jour
+      setTimeout(() => {
+        const grids = document.querySelectorAll('.stats-grid');
+        grids.forEach(grid => {
+          // Force le recalcul de la grille
+          grid.style.gridTemplateColumns = grid.style.gridTemplateColumns;
+        });
+      }, 100);
+    }
+  }, [character, finalStats]);
+
   // Calculer les statistiques dynamiques
   const getStats = () => {
     if (!character) return [];
     
-    // Calculer les stats en temps réel
+    // Calculer les stats en temps réel - DONNÉES BRUTES SANS FALLBACK
     const calculateRealTimeStats = () => {
-      const baseStatsDisplay = character.stats?.base_stats_display || {};
-      const secondaryStats = character.stats?.secondary_stats || {};
+      console.log('🔍 Données brutes du personnage:', character);
+      console.log('🔍 calculated_stats:', character.calculated_stats);
+      console.log('🔍 stats.calculated:', character.stats?.calculated);
+      console.log('🔍 stats.base:', character.stats?.base);
+      console.log('🔍 stats.secondary:', character.stats?.secondary);
       
-      const maxHealth = (baseStatsDisplay.health || 100) + Math.round(secondaryStats.vitality * 2);
-      const maxMana = (baseStatsDisplay.mana || 50) + Math.round(secondaryStats.wisdom * 1.5);
+      // Utiliser les données brutes sans fallback - CORRECTION: utiliser stats.calculated
+      const calculatedStats = character.stats?.calculated;
+      const baseStats = character.stats?.base;
+      const secondaryStats = character.stats?.secondary;
       
-      return { maxHealth, maxMana };
+      // Valeurs brutes - pas de fallback
+      const currentHealth = calculatedStats?.health;
+      const currentMana = calculatedStats?.mana;
+      const maxHealth = calculatedStats?.max_health;
+      const maxMana = calculatedStats?.max_mana;
+      
+      console.log('🔍 Valeurs brutes - Santé:', { currentHealth, maxHealth });
+      console.log('🔍 Valeurs brutes - Mana:', { currentMana, maxMana });
+      
+      return { 
+        maxHealth, 
+        maxMana,
+        currentHealth,
+        currentMana
+      };
     };
     
-    const { maxHealth, maxMana } = calculateRealTimeStats();
+    const { maxHealth, maxMana, currentHealth, currentMana } = calculateRealTimeStats();
     
     return [
       { 
@@ -132,156 +213,189 @@ const Dashboard = () => {
       { 
         icon: <Heart size={24} />, 
         label: 'Santé', 
-        value: `${Math.min(character.health, maxHealth)}/${maxHealth}`, 
+        value: (currentHealth !== undefined && maxHealth !== undefined) ? `${currentHealth}/${maxHealth}` : 'NO_DATA', 
         color: '#ff6b6b'
       },
       { 
         icon: <Zap size={24} />, 
         label: 'Mana', 
-        value: `${Math.min(character.mana, maxMana)}/${maxMana}`, 
+        value: (currentMana !== undefined && maxMana !== undefined) ? `${currentMana}/${maxMana}` : 'NO_DATA', 
         color: '#667eea'
       }
     ];
   };
 
-  // Calculer les statistiques de combat
+  // Calculer les statistiques de combat - DONNÉES BRUTES SANS FALLBACK
   const getCombatStats = () => {
     if (!character) return [];
     
-    // Utiliser les stats finales si disponibles, sinon les stats de base
-    const stats = finalStats || character;
+    console.log('🔍 Stats de combat brutes - finalStats:', finalStats);
+    console.log('🔍 Stats de combat brutes - calculated_stats:', character.calculated_stats);
+    console.log('🔍 Stats de combat brutes - stats.calculated:', character.stats?.calculated);
+    console.log('🔍 Stats de combat brutes - stats.base:', character.stats?.base);
+    
+    // Utiliser les données brutes sans fallback - CORRECTION: utiliser stats.calculated en priorité
+    const stats = finalStats || character.stats?.calculated || character.stats?.base || character;
+    
+    console.log('🔍 Stats de combat finales:', stats);
     
     return [
       { 
         icon: <Sword size={24} />, 
         label: 'Attaque', 
-        value: stats.attack, 
+        value: stats.attack !== undefined ? stats.attack : 'NO_DATA', 
         color: '#e74c3c' 
       },
       { 
         icon: <Shield size={24} />, 
         label: 'Défense', 
-        value: stats.defense, 
+        value: stats.defense !== undefined ? stats.defense : 'NO_DATA', 
         color: '#3498db' 
       },
       { 
         icon: <Zap size={24} />, 
         label: 'Magie', 
-        value: stats.magic_attack, 
+        value: stats.magic_attack !== undefined ? stats.magic_attack : 'NO_DATA', 
         color: '#9b59b6' 
       },
       { 
         icon: <TrendingUp size={24} />, 
         label: 'Critique', 
-        value: `${parseFloat(stats.critical_rate).toFixed(1)}%`, 
+        value: stats.critical_rate !== undefined ? `${parseFloat(stats.critical_rate).toFixed(1)}%` : 'NO_DATA', 
         color: '#f39c12' 
       }
     ];
   };
 
-  // Calculer les stats principales (10 stats cohérentes)
+  // Calculer les stats principales - DONNÉES BRUTES SANS FALLBACK
   const getMainStats = () => {
     if (!character) return [];
     
-    // Calculer les bonus en temps réel
+    console.log('🔍 Stats principales brutes - character.stats:', character.stats);
+    console.log('🔍 Stats principales brutes - stats.secondary:', character.stats?.secondary);
+    console.log('🔍 Stats principales brutes - calculated_stats:', character.calculated_stats);
+    
+    // Utiliser les données brutes sans fallback - CORRECTION: utiliser stats.calculated
+    const secondaryStats = character.stats?.secondary;
+    const calculatedStats = character.stats?.calculated;
+    const baseStats = character.stats?.base;
+    
+    console.log('🔍 Stats secondaires brutes:', secondaryStats);
+    
+    // Calculer les bonus en temps réel - SANS FALLBACK
     const calculateRealTimeBonuses = () => {
-      const secondaryStats = character.stats?.secondary_stats || {};
+      if (!secondaryStats) {
+        console.log('❌ Pas de stats secondaires disponibles');
+        return {
+          health_bonus: 'NO_DATA',
+          mana_bonus: 'NO_DATA',
+          attack_bonus: 'NO_DATA',
+          defense_bonus: 'NO_DATA',
+          magic_attack_bonus: 'NO_DATA',
+          magic_defense_bonus: 'NO_DATA',
+          critical_rate_bonus: 'NO_DATA',
+          critical_damage_bonus: 'NO_DATA',
+          physical_power_bonus: 'NO_DATA',
+          spell_power_bonus: 'NO_DATA'
+        };
+      }
+      
       return {
-        health_bonus: Math.round(secondaryStats.vitality * 2),
-        mana_bonus: Math.round(secondaryStats.wisdom * 1.5),
-        attack_bonus: Math.round(secondaryStats.strength * 1.2),
-        defense_bonus: Math.round(secondaryStats.endurance * 0.8),
-        magic_attack_bonus: Math.round(secondaryStats.intelligence * 1.0),
-        magic_defense_bonus: Math.round(secondaryStats.resistance * 0.6),
-        critical_rate_bonus: Math.round(secondaryStats.precision * 0.3 * 100) / 100,
-        critical_damage_bonus: Math.round(secondaryStats.strength * 0.5 * 100) / 100,
-        physical_power_bonus: Math.round(secondaryStats.strength * 2.0),
-        spell_power_bonus: Math.round(secondaryStats.intelligence * 1.8)
+        health_bonus: (secondaryStats.vitality !== undefined && secondaryStats.vitality !== null) ? Math.round(secondaryStats.vitality * 2) : 'NO_VITALITY',
+        mana_bonus: (secondaryStats.wisdom !== undefined && secondaryStats.wisdom !== null) ? Math.round(secondaryStats.wisdom * 1.5) : 'NO_WISDOM',
+        attack_bonus: (secondaryStats.strength !== undefined && secondaryStats.strength !== null) ? Math.round(secondaryStats.strength * 1.2) : 'NO_STRENGTH',
+        defense_bonus: (secondaryStats.endurance !== undefined && secondaryStats.endurance !== null) ? Math.round(secondaryStats.endurance * 0.8) : 'NO_ENDURANCE',
+        magic_attack_bonus: (secondaryStats.intelligence !== undefined && secondaryStats.intelligence !== null) ? Math.round(secondaryStats.intelligence * 1.0) : 'NO_INTELLIGENCE',
+        magic_defense_bonus: (secondaryStats.resistance !== undefined && secondaryStats.resistance !== null) ? Math.round(secondaryStats.resistance * 0.6) : 'NO_RESISTANCE',
+        critical_rate_bonus: (secondaryStats.precision !== undefined && secondaryStats.precision !== null) ? Math.round(secondaryStats.precision * 0.3 * 100) / 100 : 'NO_PRECISION',
+        critical_damage_bonus: (secondaryStats.strength !== undefined && secondaryStats.strength !== null) ? Math.round(secondaryStats.strength * 0.5 * 100) / 100 : 'NO_STRENGTH',
+        physical_power_bonus: (secondaryStats.strength !== undefined && secondaryStats.strength !== null) ? Math.round(secondaryStats.strength * 2.0) : 'NO_STRENGTH',
+        spell_power_bonus: (secondaryStats.intelligence !== undefined && secondaryStats.intelligence !== null) ? Math.round(secondaryStats.intelligence * 1.8) : 'NO_INTELLIGENCE'
       };
     };
 
     const secondaryBonuses = calculateRealTimeBonuses();
-    const secondaryStatsWithRanks = character.stats?.secondary_stats_with_ranks || {};
+    console.log('🔍 Bonus calculés:', secondaryBonuses);
     
     return [
       { 
         icon: <Heart size={20} />, 
         label: 'Vitalité', 
-        value: `+${secondaryBonuses.health_bonus} PV, +${((secondaryStatsWithRanks.vitality?.value || 10) * 0.1).toFixed(1)}/s`,
-        color: secondaryStatsWithRanks.vitality?.color || '#ff6b6b',
-        rank: secondaryStatsWithRanks.vitality?.rank || 'F',
+        value: secondaryBonuses.health_bonus !== 'NO_DATA' ? `+${secondaryBonuses.health_bonus} PV` : 'NO_DATA',
+        color: '#ff6b6b',
+        rank: secondaryStats?.vitality_rank || null,
         description: 'Vie et régénération'
       },
       { 
         icon: <Sword size={20} />, 
         label: 'Force', 
-        value: `+${secondaryBonuses.attack_bonus} ATQ, +${secondaryBonuses.physical_power_bonus} PWR`,
-        color: secondaryStatsWithRanks.strength?.color || '#e74c3c',
-        rank: secondaryStatsWithRanks.strength?.rank || 'F',
+        value: secondaryBonuses.attack_bonus !== 'NO_DATA' ? `+${secondaryBonuses.attack_bonus} ATQ` : 'NO_DATA',
+        color: '#e74c3c',
+        rank: secondaryStats?.strength_rank || null,
         description: 'Attaque physique'
       },
       { 
         icon: <Zap size={20} />, 
         label: 'Intelligence', 
-        value: `+${secondaryBonuses.magic_attack_bonus} MATQ, +${secondaryBonuses.spell_power_bonus} PWR`,
-        color: secondaryStatsWithRanks.intelligence?.color || '#9b59b6',
-        rank: secondaryStatsWithRanks.intelligence?.rank || 'F',
+        value: secondaryBonuses.magic_attack_bonus !== 'NO_DATA' ? `+${secondaryBonuses.magic_attack_bonus} MATQ` : 'NO_DATA',
+        color: '#9b59b6',
+        rank: secondaryStats?.intelligence_rank || null,
         description: 'Magie et mana'
       },
       { 
         icon: <TrendingUp size={20} />, 
         label: 'Agilité', 
-        value: `+${((secondaryStatsWithRanks.agility?.value || 10) * 0.3).toFixed(1)}% Esquive, +${((secondaryStatsWithRanks.agility?.value || 10) * 0.5).toFixed(1)}% Vitesse`,
-        color: secondaryStatsWithRanks.agility?.color || '#2ecc71',
-        rank: secondaryStatsWithRanks.agility?.rank || 'F',
+        value: secondaryStats?.agility ? `+${(secondaryStats.agility * 0.3).toFixed(1)}% Esquive` : 'NO_DATA',
+        color: '#2ecc71',
+        rank: secondaryStats?.agility_rank || null,
         description: 'Vitesse et esquive'
       },
       { 
         icon: <Shield size={20} />, 
         label: 'Résistance', 
-        value: `+${secondaryBonuses.magic_defense_bonus} MDEF`,
-        color: secondaryStatsWithRanks.resistance?.color || '#3498db',
-        rank: secondaryStatsWithRanks.resistance?.rank || 'F',
+        value: secondaryBonuses.magic_defense_bonus !== 'NO_DATA' ? `+${secondaryBonuses.magic_defense_bonus} MDEF` : 'NO_DATA',
+        color: '#3498db',
+        rank: secondaryStats?.resistance_rank || null,
         description: 'Défense magique'
       },
       { 
         icon: <Target size={20} />, 
         label: 'Précision', 
-        value: `+${((secondaryStatsWithRanks.precision?.value || 10) * 0.3).toFixed(1)}% Critique`,
-        color: secondaryStatsWithRanks.precision?.color || '#f39c12',
-        rank: secondaryStatsWithRanks.precision?.rank || 'F',
+        value: secondaryStats?.precision ? `+${(secondaryStats.precision * 0.3).toFixed(1)}% Critique` : 'NO_DATA',
+        color: '#f39c12',
+        rank: secondaryStats?.precision_rank || null,
         description: 'Taux de critique'
       },
       { 
         icon: <Shield size={20} />, 
         label: 'Endurance', 
-        value: `+${secondaryBonuses.defense_bonus} DEF`,
-        color: secondaryStatsWithRanks.endurance?.color || '#8e44ad',
-        rank: secondaryStatsWithRanks.endurance?.rank || 'F',
+        value: secondaryBonuses.defense_bonus !== 'NO_DATA' ? `+${secondaryBonuses.defense_bonus} DEF` : 'NO_DATA',
+        color: '#8e44ad',
+        rank: secondaryStats?.endurance_rank || null,
         description: 'Défense physique'
       },
       { 
         icon: <Brain size={20} />, 
         label: 'Sagesse', 
-        value: `+${((secondaryStatsWithRanks.wisdom?.value || 10) * 0.15).toFixed(1)}/s Mana`,
-        color: secondaryStatsWithRanks.wisdom?.color || '#1abc9c',
-        rank: secondaryStatsWithRanks.wisdom?.rank || 'F',
+        value: secondaryStats?.wisdom ? `+${(secondaryStats.wisdom * 0.15).toFixed(1)}/s Mana` : 'NO_DATA',
+        color: '#1abc9c',
+        rank: secondaryStats?.wisdom_rank || null,
         description: 'Régénération mana'
       },
       { 
         icon: <Shield size={20} />, 
         label: 'Constitution', 
-        value: `+${((secondaryStatsWithRanks.constitution?.value || 10) * 0.2).toFixed(1)}% Blocage`,
-        color: secondaryStatsWithRanks.constitution?.color || '#e67e22',
-        rank: secondaryStatsWithRanks.constitution?.rank || 'F',
+        value: secondaryStats?.constitution ? `+${(secondaryStats.constitution * 0.2).toFixed(1)}% Blocage` : 'NO_DATA',
+        color: '#e67e22',
+        rank: secondaryStats?.constitution_rank || null,
         description: 'Résistance effets'
       },
       { 
         icon: <Target size={20} />, 
         label: 'Dextérité', 
-        value: `+${((secondaryStatsWithRanks.dexterity?.value || 10) * 0.2).toFixed(1)}% Esquive, +${((secondaryStatsWithRanks.dexterity?.value || 10) * 0.15).toFixed(1)}% Parade`,
-        color: secondaryStatsWithRanks.dexterity?.color || '#27ae60',
-        rank: secondaryStatsWithRanks.dexterity?.rank || 'F',
+        value: secondaryStats?.dexterity ? `+${(secondaryStats.dexterity * 0.2).toFixed(1)}% Esquive` : 'NO_DATA',
+        color: '#27ae60',
+        rank: secondaryStats?.dexterity_rank || null,
         description: 'Précision avancée'
       }
     ];
@@ -298,6 +412,13 @@ const Dashboard = () => {
           ⚔️
         </motion.div>
         <p>Chargement de votre personnage...</p>
+        {/* Skeleton pour maintenir la structure */}
+        <div className="skeleton-grid">
+          <div className="skeleton-card"></div>
+          <div className="skeleton-card"></div>
+          <div className="skeleton-card"></div>
+          <div className="skeleton-card"></div>
+        </div>
       </div>
     );
   }
@@ -322,7 +443,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="dashboard">
+    <div className={`dashboard ${forceReflow ? 'force-reflow' : ''}`}>
       <motion.div
         className="dashboard-header"
         initial={{ opacity: 0, y: -20 }}
@@ -332,7 +453,7 @@ const Dashboard = () => {
         <h1>🏠 Tableau de Bord</h1>
         <p>Bienvenue, {character.name} ! Niveau {character.level}</p>
         <div className="character-class">
-          <span className="class-badge">{character.class_name}</span>
+          <span className="class-badge">{character.class_display_name || character.class_name || 'Classe'}</span>
         </div>
       </motion.div>
 
@@ -506,22 +627,45 @@ const Dashboard = () => {
           <h2>🎭 Informations du Personnage</h2>
           <div className="info-grid">
             <div className="info-item">
-              <strong>Nom:</strong> {character.name}
+              <strong>Nom:</strong> {character.name || 'NO_DATA'}
             </div>
             <div className="info-item">
-              <strong>Classe:</strong> {character.class_display_name}
+              <strong>Classe:</strong> {character.class_display_name || character.class?.display_name || character.class_name || 'NO_DATA'}
             </div>
             <div className="info-item">
-              <strong>Niveau:</strong> {character.level}
+              <strong>Niveau:</strong> {character.level || 'NO_DATA'}
             </div>
             <div className="info-item">
-              <strong>Expérience:</strong> {character.experience} / {character.experience_to_next}
+              <strong>Expérience:</strong> {character.experience !== undefined ? `${character.experience} / ${character.experience_to_next}` : 'NO_DATA'}
             </div>
             <div className="info-item">
-              <strong>Créé le:</strong> {new Date(character.created_at).toLocaleDateString('fr-FR')}
+              <strong>Créé le:</strong> {(() => {
+                try {
+                  if (character.created_at) {
+                    const date = new Date(character.created_at);
+                    return isNaN(date.getTime()) ? 'INVALID_DATE' : date.toLocaleDateString('fr-FR');
+                  }
+                  return 'NO_DATA';
+                } catch (e) {
+                  return 'INVALID_DATE';
+                }
+              })()}
             </div>
             <div className="info-item">
-              <strong>Dernière connexion:</strong> {userProfile ? new Date(userProfile.last_login).toLocaleDateString('fr-FR') : 'N/A'}
+              <strong>Dernière connexion:</strong> {(() => {
+                try {
+                  if (userProfile?.last_login) {
+                    const date = new Date(userProfile.last_login);
+                    return isNaN(date.getTime()) ? 'INVALID_DATE' : date.toLocaleDateString('fr-FR');
+                  }
+                  return 'NO_DATA';
+                } catch (e) {
+                  return 'INVALID_DATE';
+                }
+              })()}
+            </div>
+            <div className="info-item">
+              <strong>Titre:</strong> {character.title || 'NO_DATA'}
             </div>
           </div>
         </motion.div>

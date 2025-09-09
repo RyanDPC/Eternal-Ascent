@@ -23,17 +23,18 @@ const Dungeons = () => {
       try {
         setLoading(true);
         if (user && user.id) {
-          // Charger les données du personnage
-          const characterData = await databaseService.getCharacterData(user.id);
-          setCharacter(characterData);
+          // Charger le personnage courant
+          const characterData = await databaseService.getCurrentCharacterData();
+          const characterNormalized = characterData.character || characterData;
+          setCharacter(characterNormalized);
 
           // Charger les donjons disponibles
           const availableDungeons = await databaseService.getAvailableDungeons();
-          setDungeons(availableDungeons);
+          setDungeons(Array.isArray(availableDungeons) ? availableDungeons : []);
 
           // Charger les difficultés
           const difficultiesData = await databaseService.getDifficulties();
-          setDifficulties(difficultiesData);
+          setDifficulties(Array.isArray(difficultiesData) ? difficultiesData : []);
         }
       } catch (err) {
         console.error('Erreur lors du chargement des donjons:', err);
@@ -112,7 +113,8 @@ const Dungeons = () => {
           if (results.victory) {
             console.log(`Victoire ! +${results.exp} EXP, +${results.gold} Or`);
             // Mettre à jour les données du personnage
-            const updatedCharacter = await databaseService.getCharacterData(user.id);
+            const updatedCharacterData = await databaseService.getCurrentCharacterData();
+            const updatedCharacter = updatedCharacterData.character || updatedCharacterData;
             setCharacter(updatedCharacter);
           } else {
             console.log('Défaite...');

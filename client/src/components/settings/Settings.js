@@ -44,9 +44,9 @@ const Settings = () => {
       try {
         setLoading(true);
         if (user && user.id) {
-          // Charger les données du personnage
-          const characterData = await databaseService.getCharacterData(user.id);
-          setCharacter(characterData);
+          // Charger le personnage courant
+          const current = await databaseService.getCurrentCharacterData();
+          setCharacter(current.character || current);
 
           // Charger les paramètres sauvegardés (à implémenter)
           // const savedSettings = await databaseService.getUserSettings(user.id);

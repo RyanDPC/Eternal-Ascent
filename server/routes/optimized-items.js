@@ -82,6 +82,88 @@ router.get('/', injectDataService, async (req, res) => {
 });
 
 /**
+ * GET /api/items/popularity
+ * Récupère les statistiques de popularité des objets
+ */
+router.get('/popularity', injectDataService, async (req, res) => {
+  try {
+    const popularity = await req.dataService.getItemsPopularity();
+    
+    res.json({
+      success: true,
+      popularity: popularity.map(stat => ({
+        type: stat.type_name,
+        rarity: stat.rarity_name,
+        count: parseInt(stat.count),
+        average_owned: parseFloat(stat.avg_owned)
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Error fetching items popularity:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+/**
+ * GET /api/items/random
+ * Récupère des objets aléatoires
+ */
+router.get('/random', injectDataService, async (req, res) => {
+  try {
+    const { count = 5, rarity, type } = req.query;
+    
+    let query = `
+      SELECT * FROM items_with_stats
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramCount = 0;
+    
+    if (rarity) {
+      paramCount++;
+      query += ` AND rarity_name = $${paramCount}`;
+      params.push(rarity);
+    }
+    
+    if (type) {
+      paramCount++;
+      query += ` AND type_name = $${paramCount}`;
+      params.push(type);
+    }
+    
+    query += ` ORDER BY RANDOM() LIMIT $${paramCount + 1}`;
+    params.push(parseInt(count));
+    
+    const items = await req.dataService.pool.query(query, params);
+    
+    res.json({
+      success: true,
+      items: items.rows.map(item => ({
+        id: item.id,
+        name: item.name,
+        display_name: item.display_name,
+        description: item.description,
+        type: {
+          name: item.type_name,
+          category: item.type_category
+        },
+        rarity: {
+          name: item.rarity_name,
+          color: item.rarity_color
+        },
+        level_requirement: item.level_requirement,
+        base_stats: item.base_stats,
+        icon: item.icon
+      })),
+      count: items.rows.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching random items:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+/**
  * GET /api/items/:id
  * Récupère un objet par ID
  */
@@ -284,29 +366,6 @@ router.get('/rarity/:rarity', injectDataService, async (req, res) => {
 });
 
 /**
- * GET /api/items/popularity
- * Récupère les statistiques de popularité des objets
- */
-router.get('/popularity', injectDataService, async (req, res) => {
-  try {
-    const popularity = await req.dataService.getItemsPopularity();
-    
-    res.json({
-      success: true,
-      popularity: popularity.map(stat => ({
-        type: stat.type_name,
-        rarity: stat.rarity_name,
-        count: parseInt(stat.count),
-        average_owned: parseFloat(stat.avg_owned)
-      }))
-    });
-  } catch (error) {
-    console.error('❌ Error fetching items popularity:', error);
-    res.status(500).json({ error: 'Erreur interne du serveur' });
-  }
-});
-
-/**
  * GET /api/items/filters/options
  * Récupère les options de filtres disponibles
  */
@@ -345,65 +404,6 @@ router.get('/filters/options', injectDataService, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching filter options:', error);
-    res.status(500).json({ error: 'Erreur interne du serveur' });
-  }
-});
-
-/**
- * GET /api/items/random
- * Récupère des objets aléatoires
- */
-router.get('/random', injectDataService, async (req, res) => {
-  try {
-    const { count = 5, rarity, type } = req.query;
-    
-    let query = `
-      SELECT * FROM items_with_stats
-      WHERE 1=1
-    `;
-    const params = [];
-    let paramCount = 0;
-    
-    if (rarity) {
-      paramCount++;
-      query += ` AND rarity_name = $${paramCount}`;
-      params.push(rarity);
-    }
-    
-    if (type) {
-      paramCount++;
-      query += ` AND type_name = $${paramCount}`;
-      params.push(type);
-    }
-    
-    query += ` ORDER BY RANDOM() LIMIT $${paramCount + 1}`;
-    params.push(parseInt(count));
-    
-    const items = await req.dataService.pool.query(query, params);
-    
-    res.json({
-      success: true,
-      items: items.rows.map(item => ({
-        id: item.id,
-        name: item.name,
-        display_name: item.display_name,
-        description: item.description,
-        type: {
-          name: item.type_name,
-          category: item.type_category
-        },
-        rarity: {
-          name: item.rarity_name,
-          color: item.rarity_color
-        },
-        level_requirement: item.level_requirement,
-        base_stats: item.base_stats,
-        icon: item.icon
-      })),
-      count: items.rows.length
-    });
-  } catch (error) {
-    console.error('❌ Error fetching random items:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 });

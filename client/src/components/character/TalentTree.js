@@ -25,27 +25,30 @@ const TalentTree = () => {
         setLoading(true);
         
         if (user && user.id) {
-          // Charger les données du personnage
-          const characterData = await databaseService.getCharacterData(user.id);
-          setCharacter(characterData);
+          // Charger le personnage courant
+          const characterData = await databaseService.getCurrentCharacterData();
+          const characterNormalized = characterData.character || characterData;
+          setCharacter(characterNormalized);
           
           // Charger les arbres de talents
           const trees = await databaseService.getTalentTrees();
-          setTalentTrees(trees);
+          setTalentTrees(Array.isArray(trees) ? trees : (trees?.trees || []));
           
           // Trouver l'arbre correspondant à la classe du personnage
-          const characterTree = trees.find(tree => tree.class === characterData.class_name);
+          const characterTree = (Array.isArray(trees) ? trees : (trees?.trees || [])).find(
+            tree => (tree.class === characterNormalized.class_name) || (tree.class_name === characterNormalized.class_name)
+          );
           if (characterTree) {
             setSelectedTree(characterTree);
           }
           
           // Charger les talents appris
-          const talents = characterData.learned_talents || [];
+          const talents = characterNormalized.learned_talents || [];
           setLearnedTalents(talents);
           
           // Calculer les points disponibles
           const spentPoints = talents.length;
-          const totalPoints = Math.floor(characterData.level / 2);
+          const totalPoints = Math.floor(characterNormalized.level / 2);
           setAvailablePoints(Math.max(0, totalPoints - spentPoints));
         }
       } catch (err) {
@@ -67,15 +70,15 @@ const TalentTree = () => {
         return;
       }
 
-      await databaseService.learnTalent(user.id, talentId);
+      await databaseService.learnTalent(character?.id, talentId);
       
       // Mettre à jour l'état local
       setLearnedTalents(prev => [...prev, talentId]);
       setAvailablePoints(prev => prev - 1);
       
       // Recharger les données du personnage
-      const updatedCharacter = await databaseService.getCharacterData(user.id);
-      setCharacter(updatedCharacter);
+      const updatedCharacterData = await databaseService.getCurrentCharacterData();
+      setCharacter(updatedCharacterData.character || updatedCharacterData);
       
       setError(null);
     } catch (err) {

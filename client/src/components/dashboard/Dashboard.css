@@ -4,6 +4,11 @@
   color: #ffffff;
   padding: 20px;
   font-family: 'Inter', sans-serif;
+  position: relative;
+  z-index: 1;
+  /* Force le reflow pour éviter les problèmes de rendu */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .dashboard-header {
@@ -54,12 +59,21 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 20px;
+  /* Force la stabilité du layout */
+  align-items: start;
+  justify-items: stretch;
+  /* Éviter les problèmes de recalcul */
+  contain: layout style;
 }
 
 /* Grille spéciale pour les stats principales (10 stats) */
 .stats-grid.main-stats {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
+  /* Force la stabilité du layout */
+  align-items: start;
+  justify-items: stretch;
+  contain: layout style;
 }
 
 .stat-card {
@@ -75,6 +89,10 @@
   backdrop-filter: blur(10px);
   position: relative;
   overflow: hidden;
+  /* Force le rendu pour éviter les problèmes de layout */
+  will-change: transform, background-color, border-color;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .stat-card::before {
@@ -570,6 +588,31 @@
   will-change: transform;
 }
 
+/* Force le rechargement des styles pour éviter les problèmes de rendu */
+.dashboard.force-reflow {
+  animation: forceReflow 0.1s ease-in-out;
+}
+
+@keyframes forceReflow {
+  0% { opacity: 0.99; }
+  100% { opacity: 1; }
+}
+
+/* Assurer que les grilles se redimensionnent correctement */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  /* Force le recalcul de la grille */
+  contain: layout;
+}
+
+.stats-grid.main-stats {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  contain: layout;
+}
+
 /* Custom Scrollbar */
 .dashboard::-webkit-scrollbar {
   width: 8px;
@@ -727,6 +770,31 @@
 .dashboard-loading .loading-spinner {
   font-size: 3rem;
   margin-bottom: 20px;
+}
+
+/* Skeleton pour maintenir la structure pendant le chargement */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 40px;
+}
+
+.skeleton-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  height: 120px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 0.3; }
+  100% { opacity: 0.6; }
 }
 
 .dashboard-error {

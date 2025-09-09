@@ -10,11 +10,18 @@ const morgan = require('morgan');
 // Services optimisés
 const OptimizedDataService = require('./services/OptimizedDataService');
 const CacheService = require('./services/CacheService');
+const QuestSystem = require('./systems/quests');
+const WebSocketManager = require('./websocket/WebSocketManager');
+const RotationService = require('./services/RotationService');
 
 // Routes optimisées
 const optimizedCharacterRoutes = require('./routes/optimized-characters');
 const optimizedItemRoutes = require('./routes/optimized-items');
 const staticRoutes = require('./routes/static');
+const systemsRoutes = require('./routes/systems');
+const talentsRoutes = require('./routes/talents');
+const combatRoutes = require('./routes/combat');
+const authenticateToken = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,6 +29,9 @@ const PORT = process.env.PORT || 3001;
 // Initialisation des services
 let dataService;
 let cacheService;
+let systems;
+let wsManager;
+let rotationService;
 
 // =====================================================
 // MIDDLEWARE DE SÉCURITÉ ET PERFORMANCE
@@ -85,17 +95,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-// Parser JSON avec limite
+// Parser JSON avec limite (laisser body-parser gérer les erreurs de parsing)
 app.use(express.json({ 
-  limit: '10mb',
-  verify: (req, res, buf) => {
-    try {
-      JSON.parse(buf);
-    } catch (e) {
-      res.status(400).json({ error: 'JSON invalide' });
-      throw new Error('Invalid JSON');
-    }
-  }
+  limit: '10mb'
 }));
 
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -104,12 +106,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // MIDDLEWARE PERSONNALISÉS
 // =====================================================
 
-// Middleware pour injecter les services
-app.use((req, res, next) => {
-  req.dataService = dataService;
-  req.cacheService = cacheService;
-  next();
-});
+// Middleware pour injecter les services (sera configuré après l'initialisation)
 
 // Middleware simple pour extraire l'utilisateur depuis le JWT
 function requireAuth(req, res, next) {
@@ -129,8 +126,12 @@ function requireAuth(req, res, next) {
 app.use((error, req, res, next) => {
   console.error('❌ Global error:', error);
   
-  if (error.type === 'entity.parse.failed') {
+  if (error && (error.type === 'entity.parse.failed' || error.type === 'entity.verify.failed')) {
     return res.status(400).json({ error: 'Données JSON invalides' });
+  }
+  
+  if (res.headersSent) {
+    return next(error);
   }
   
   res.status(500).json({ 
@@ -152,9 +153,15 @@ app.get('/api/health', async (req, res) => {
     const dbCheck = await dataService.pool.query('SELECT NOW()');
     const dbTime = Date.now() - startTime;
     
-    // Vérifier le cache Redis
-    const cacheCheck = await cacheService.getAsync('health_check');
-    await cacheService.setAsync('health_check', 'ok', 'EX', 10);
+    // Vérifier le cache (Redis ou fallback mémoire)
+    let cacheStatus = 'disabled';
+    try {
+      const cacheCheck = await cacheService.getStaticData('health_check');
+      await cacheService.cacheStaticData('health_check', 'ok', 10);
+      cacheStatus = cacheCheck ? 'OK' : 'OK';
+    } catch (e) {
+      cacheStatus = 'unavailable';
+    }
     
     const responseTime = Date.now() - startTime;
     
@@ -165,11 +172,11 @@ app.get('/api/health', async (req, res) => {
       performance: {
         response_time_ms: responseTime,
         database_time_ms: dbTime,
-        cache_status: cacheCheck ? 'OK' : 'WARNING'
+        cache_status: cacheStatus
       },
       services: {
         database: 'Connected',
-        cache: cacheCheck ? 'Connected' : 'Warning',
+        cache: cacheStatus === 'OK' ? 'Connected' : cacheStatus,
         uptime: process.uptime()
       },
       optimization: {
@@ -231,6 +238,18 @@ app.use('/api/items', optimizedItemRoutes);
 
 // Routes des données statiques
 app.use('/api/static', staticRoutes);
+app.use('/api/talents', talentsRoutes);
+app.use('/api', combatRoutes);
+
+// Injecter et monter les systèmes avancés
+app.use((req, res, next) => {
+  req.app.locals.systems = systems;
+  next();
+});
+app.use('/api/systems', systemsRoutes);
+
+// Routes des systèmes (quêtes, pvp, events, etc.)
+app.use('/api/systems', systemsRoutes);
 
 // =====================================================
 // ROUTES D'AUTHENTIFICATION (BASIQUES)
@@ -502,6 +521,40 @@ app.post('/api/guilds/generate-dynamic', requireAuth, async (req, res) => {
 });
 
 // =====================================================
+// ROUTES POUR LES TALENTS
+// =====================================================
+
+// Récupérer tous les arbres de talents
+app.get('/api/talents/trees', async (req, res) => {
+  try {
+    const talentsData = require('./data/sid/talents');
+    const trees = talentsData.getTalentTrees();
+    res.json({ success: true, trees });
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération des arbres de talents:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des arbres de talents' });
+  }
+});
+
+// Récupérer l'arbre de talents par classe
+app.get('/api/talents/trees/:className', async (req, res) => {
+  try {
+    const { className } = req.params;
+    const talentsData = require('./data/sid/talents');
+    const tree = talentsData.getTalentTreeByClass(className);
+    
+    if (!tree) {
+      return res.status(404).json({ error: 'Arbre de talents non trouvé pour cette classe' });
+    }
+    
+    res.json({ success: true, tree });
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération de l\'arbre de talents:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération de l\'arbre de talents' });
+  }
+});
+
+// =====================================================
 // ROUTES DE FALLBACK ET GESTION D'ERREURS
 // =====================================================
 
@@ -557,6 +610,19 @@ async function startServer() {
     
     // Initialiser les services
     await dataService.initialize();
+
+    // Initialiser les systèmes (ex: quêtes)
+    systems = new Map();
+    systems.set('quests', new QuestSystem(dataService.pool));
+    rotationService = new RotationService(dataService, cacheService, systems.get('quests'));
+    systems.set('rotations', rotationService);
+    
+    // Injecter les services dans le middleware après initialisation
+    app.use((req, res, next) => {
+      req.dataService = dataService;
+      req.cacheService = cacheService;
+      next();
+    });
     
     // Démarrer le serveur
     const server = app.listen(PORT, () => {
@@ -573,6 +639,10 @@ async function startServer() {
       console.log(`   ✅ Index composites: Activés`);
       console.log(`   ✅ Pagination intelligente: Activée`);
     });
+
+    // WebSocket
+    wsManager = new WebSocketManager(server);
+    systems.set('websocket', wsManager);
 
     // Gestion gracieuse de l'arrêt
     process.on('SIGTERM', async () => {

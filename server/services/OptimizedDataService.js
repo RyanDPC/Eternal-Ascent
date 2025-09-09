@@ -1,5 +1,7 @@
 const { Pool } = require('pg');
 const CacheService = require('./CacheService');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Service de données ultra-optimisé pour Eternal Ascent
@@ -59,16 +61,11 @@ class OptimizedDataService {
     };
 
     // Configuration SSL optimisée pour Render
-    if (process.env.NODE_ENV === 'production' || process.env.DB_SSL === 'true') {
-      config.ssl = {
-        rejectUnauthorized: false,
-        require: true,
-        // Configuration spécifique pour Render
-        sslmode: 'require'
-      };
-    } else {
-      config.ssl = false;
-    }
+    // Toujours utiliser SSL pour les connexions externes
+    config.ssl = {
+      rejectUnauthorized: false,
+      require: true
+    };
 
     return config;
   }
@@ -123,7 +120,7 @@ class OptimizedDataService {
           AND ($3::int IS NULL OR level_requirement >= $3)
           AND ($4::int IS NULL OR level_requirement <= $4)
           AND ($5::text IS NULL OR name ILIKE '%' || $5 || '%')
-        ORDER BY level_requirement, rarity_id, name
+        ORDER BY level_requirement, rarity_name, name
         LIMIT $6 OFFSET $7
       `,
       'get_item_by_id': `
@@ -131,7 +128,7 @@ class OptimizedDataService {
       `,
       'get_items_by_type': `
         SELECT * FROM items_with_stats WHERE type_name = $1
-        ORDER BY level_requirement, rarity_id
+        ORDER BY level_requirement, rarity_name
       `,
       'get_items_by_rarity': `
         SELECT * FROM items_with_stats WHERE rarity_name = $1
@@ -140,24 +137,21 @@ class OptimizedDataService {
 
       // === DONJONS ===
       'get_dungeons_by_level': `
-        SELECT d.*, df.name as difficulty_name, df.color as difficulty_color
+        SELECT d.*, d.difficulty as difficulty_name, '#FF6B6B' as difficulty_color
         FROM dungeons d
-        JOIN difficulties df ON d.difficulty_id = df.id
         WHERE d.level_requirement <= $1
-        ORDER BY d.level_requirement, df.order_index
+        ORDER BY d.level_requirement, d.id
       `,
       'get_dungeon_by_id': `
-        SELECT d.*, df.name as difficulty_name, df.color as difficulty_color
+        SELECT d.*, d.difficulty as difficulty_name, '#FF6B6B' as difficulty_color
         FROM dungeons d
-        JOIN difficulties df ON d.difficulty_id = df.id
         WHERE d.id = $1
       `,
       'get_character_dungeons': `
         SELECT cd.*, d.name as dungeon_name, d.display_name as dungeon_display_name,
-               d.level_requirement, df.name as difficulty_name
+               d.level_requirement, d.difficulty as difficulty_name
         FROM character_dungeons cd
         JOIN dungeons d ON cd.dungeon_id = d.id
-        JOIN difficulties df ON d.difficulty_id = df.id
         WHERE cd.character_id = $1
         ORDER BY d.level_requirement
       `,
@@ -200,7 +194,7 @@ class OptimizedDataService {
         WHERE name ILIKE '%' || $1 || '%' OR display_name ILIKE '%' || $1 || '%'
         ORDER BY 
           CASE WHEN name ILIKE $1 || '%' THEN 1 ELSE 2 END,
-          level_requirement, rarity_id
+          level_requirement, rarity_name
         LIMIT $2
       `,
       'search_characters': `
@@ -286,6 +280,41 @@ class OptimizedDataService {
 
     if (useCache) {
       await this.cache.cacheCharacterStats(characterId, characterData, 300);
+    }
+
+    return characterData;
+  }
+
+  /**
+   * Récupère un personnage par ID utilisateur
+   */
+  async getCharacterByUserId(userId, useCache = true) {
+    const cacheKey = `character_by_user:${userId}`;
+    
+    if (useCache) {
+      const cached = await this.cache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const character = await this.executePrepared('get_character_by_user', [userId]);
+    if (character.length === 0) {
+      return null;
+    }
+
+    const characterData = character[0];
+    
+    // Récupérer l'inventaire
+    const inventory = await this.getCharacterInventory(characterData.id, false);
+    characterData.inventory = inventory;
+
+    // Calculer les stats finales
+    const calculatedStats = await this.calculateCharacterStats(characterData);
+    characterData.calculated_stats = calculatedStats;
+
+    if (useCache) {
+      await this.cache.set(cacheKey, characterData, 300);
     }
 
     return characterData;
@@ -634,6 +663,20 @@ class OptimizedDataService {
     // Tester la connexion avec retry
     await this.testConnectionWithRetry();
 
+    // S'assurer que le schéma est compatible (migrations légères)
+    try {
+      await this.ensureSchemaFixes();
+    } catch (e) {
+      console.warn('⚠️ ensureSchemaFixes failed:', e.message);
+    }
+
+    // Créer/mettre à jour les vues et index optimisés si absents
+    try {
+      await this.ensureOptimizedViews();
+    } catch (e) {
+      console.warn('⚠️ ensureOptimizedViews failed:', e.message);
+    }
+
     // Précharger les données statiques
     try {
       await this.cache.preloadStaticData(this);
@@ -642,6 +685,47 @@ class OptimizedDataService {
     }
     
     console.log('✅ OptimizedDataService initialized successfully');
+  }
+
+  /**
+   * Applique des correctifs de schéma légers (sans perte de données)
+   */
+  async ensureSchemaFixes() {
+    // Étendre la précision de critical_damage pour éviter les overflows (DECIMAL(4,2) -> DECIMAL(6,2))
+    const checkQuery = `
+      SELECT numeric_precision, numeric_scale
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'characters' AND column_name = 'critical_damage'
+    `;
+    const result = await this.pool.query(checkQuery);
+    const row = result.rows[0];
+    const needsAlter = !row || (row.numeric_precision && parseInt(row.numeric_precision, 10) <= 4);
+    if (needsAlter) {
+      console.log('🛠️ Altering characters.critical_damage to DECIMAL(6,2) ...');
+      await this.pool.query('ALTER TABLE characters ALTER COLUMN critical_damage TYPE DECIMAL(6,2)');
+      console.log('✅ Column critical_damage altered to DECIMAL(6,2)');
+    }
+  }
+
+  /**
+   * Crée/Met à jour les vues et index optimisés nécessaires
+   */
+  async ensureOptimizedViews() {
+    // Vérifier rapidement si une vue clé existe
+    const existsRes = await this.pool.query(
+      `SELECT 1 FROM information_schema.views WHERE table_schema = 'public' AND table_name = 'items_with_stats'`
+    );
+    if (existsRes.rowCount > 0) {
+      // Toujours réappliquer pour garder à jour
+      console.log('🔁 Refreshing optimized views...');
+    } else {
+      console.log('🧱 Creating optimized views...');
+    }
+
+    const viewsPath = path.join(__dirname, '..', 'database-views.sql');
+    const sql = fs.readFileSync(viewsPath, 'utf8');
+    await this.pool.query(sql);
+    console.log('✅ Optimized views ensured');
   }
 
   /**

@@ -60,24 +60,13 @@ const Inventory = () => {
     try {
       setLoading(true);
       if (user && user.id) {
-        // Charger les données réelles du personnage
-        const characterData = await databaseService.getCharacterData(user.id);
-        setCharacter(characterData);
-        
+        // Récupérer le personnage courant et son ID réel
+        const characterData = await databaseService.getCurrentCharacterData();
+        const characterNormalized = characterData.character || characterData;
+        setCharacter(characterNormalized);
         // Charger l'inventaire avec l'ID du personnage
-        const inventoryData = await databaseService.getCharacterInventory(characterData.id);
-        // Extraire tous les objets de l'inventaire organisé
-        const allItems = [
-          ...(inventoryData.inventory?.equipped || []),
-          ...(inventoryData.inventory?.consumables || []),
-          ...(inventoryData.inventory?.materials || []),
-          ...(inventoryData.inventory?.tools || []),
-          ...(inventoryData.inventory?.weapons || []),
-          ...(inventoryData.inventory?.armor || []),
-          ...(inventoryData.inventory?.accessories || []),
-          ...(inventoryData.inventory?.other || [])
-        ];
-        setInventory(allItems);
+        const items = await databaseService.getCharacterInventory(characterNormalized.id);
+        setInventory(items);
       }
     } catch (err) {
       console.error('Erreur lors du chargement de l\'inventaire:', err);
@@ -90,16 +79,16 @@ const Inventory = () => {
   // Filtrer et trier l'inventaire
   const filteredAndSortedInventory = inventory
     .filter(item => {
-      const matchesSearch = item.item_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           item.item_description?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = filterType === 'all' || item.item_type === filterType;
+      const matchesSearch = (item.item_name || item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (item.item_description || item.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = filterType === 'all' || (item.item_type === filterType);
       return matchesSearch && matchesType;
     })
     .sort((a, b) => {
       switch (sortBy) {
         case 'rarity':
           const rarityOrder = ['mythic', 'legendary', 'epic', 'rare', 'uncommon', 'common'];
-          return rarityOrder.indexOf(a.rarity_name) - rarityOrder.indexOf(b.rarity_name);
+          return rarityOrder.indexOf(a.rarity_name || '') - rarityOrder.indexOf(b.rarity_name || '');
         case 'level':
           return (b.item_level || 0) - (a.item_level || 0);
         case 'name':
