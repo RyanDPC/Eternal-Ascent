@@ -383,6 +383,11 @@
   padding: 1.5rem;
 }
 
+/* Utiliser la même grille que les stats principales pour l'info en mode cartes */
+.overview-additional-as-cards .overview-stats-grid.overview-main-stats {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .overview-character-additional-info h3 {
   font-size: 1.25rem;
   font-weight: 700;
@@ -431,6 +436,9 @@
   .overview-stats-grid.overview-main-stats {
     grid-template-columns: repeat(4, 1fr);
   }
+  .overview-additional-as-cards .overview-stats-grid.overview-main-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
   
   .overview-stats-grid.overview-secondary-stats {
     grid-template-columns: repeat(2, 1fr);
@@ -464,6 +472,9 @@
   }
   
   .overview-stats-grid.overview-main-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .overview-additional-as-cards .overview-stats-grid.overview-main-stats {
     grid-template-columns: repeat(2, 1fr);
   }
   

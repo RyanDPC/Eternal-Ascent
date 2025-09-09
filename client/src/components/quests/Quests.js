@@ -25,7 +25,7 @@ const Quests = () => {
           setCharacter(characterData);
 
           // Charger les quêtes disponibles
-          const availableQuests = await databaseService.getAvailableQuests();
+          const availableQuests = await databaseService.getAvailableQuests(characterData.id || user.id);
           setQuests(availableQuests);
         }
       } catch (err) {
@@ -112,13 +112,13 @@ const Quests = () => {
       // Mettre à jour le statut de la quête
       await databaseService.updateQuestProgress({
         quest_id: quest.id,
-        user_id: user.id,
+        user_id: character?.id || user.id,
         status: 'in_progress',
         start_time: new Date().toISOString()
       });
 
       // Recharger les quêtes
-      const availableQuests = await databaseService.getAvailableQuests(user.id);
+      const availableQuests = await databaseService.getAvailableQuests(character?.id || user.id);
       setQuests(availableQuests);
     } catch (error) {
       console.error('Erreur lors du démarrage de la quête:', error);
@@ -134,13 +134,13 @@ const Quests = () => {
       // Mettre à jour le statut de la quête
       await databaseService.updateQuestProgress({
         quest_id: quest.id,
-        user_id: user.id,
+        user_id: character?.id || user.id,
         status: 'abandoned',
         end_time: new Date().toISOString()
       });
 
       // Recharger les quêtes
-      const availableQuests = await databaseService.getAvailableQuests(user.id);
+      const availableQuests = await databaseService.getAvailableQuests(character?.id || user.id);
       setQuests(availableQuests);
     } catch (error) {
       console.error('Erreur lors de l\'abandon de la quête:', error);
@@ -164,7 +164,7 @@ const Quests = () => {
   const refreshQuests = async () => {
     try {
       setLoading(true);
-      const availableQuests = await databaseService.getAvailableQuests(user.id);
+      const availableQuests = await databaseService.getAvailableQuests(character?.id || user.id);
       setQuests(availableQuests);
     } catch (error) {
       console.error('Erreur lors du rafraîchissement:', error);

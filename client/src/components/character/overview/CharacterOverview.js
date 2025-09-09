@@ -58,6 +58,18 @@ const CharacterOverview = ({
     
     const realTimeStats = calculateRealTimeStats();
     
+    // Calcul d'une endurance fiable même si les champs bruts n'existent pas
+    const enduranceStat = (
+      character.stats?.secondary_stats?.endurance ??
+      character.endurance ??
+      10
+    );
+    const computedMaxStamina = Math.max(100, Math.round(100 + enduranceStat * 5));
+    const currentStamina = Math.min(
+      character.stamina ?? computedMaxStamina,
+      computedMaxStamina
+    );
+    
     return [
       { 
         key: 'health', 
@@ -76,7 +88,7 @@ const CharacterOverview = ({
       { 
         key: 'stamina', 
         label: 'Endurance', 
-        value: `${character.stamina || 100}/${character.max_stamina || 100}`, 
+        value: `${currentStamina}/${computedMaxStamina}`, 
         icon: <Heart size={24} />, 
         color: '#fdcb6e' 
       }
@@ -386,29 +398,6 @@ const CharacterOverview = ({
             </div>
           </motion.div>
 
-          {/* Informations Supplémentaires */}
-          <motion.div
-            className="overview-character-additional-info"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-          >
-            <h3>📋 Informations</h3>
-            <div className="overview-info-grid">
-              <div className="overview-info-item">
-                <strong>Créé le:</strong> {userProfile && new Date(userProfile.created_at).toLocaleDateString('fr-FR')}
-              </div>
-              <div className="overview-info-item">
-                <strong>Dernière connexion:</strong> {userProfile && userProfile.last_login && new Date(userProfile.last_login).toLocaleDateString('fr-FR')}
-              </div>
-              <div className="overview-info-item">
-                <strong>Titre:</strong> {character.title || 'Aucun Titre'}
-              </div>
-              <div className="overview-info-item">
-                <strong>Classe:</strong> {character.class_display_name}
-              </div>
-            </div>
-          </motion.div>
         </div>
 
         {/* Colonne secondaire - Stats principales */}
@@ -446,6 +435,50 @@ const CharacterOverview = ({
                   </div>
                 </motion.div>
               ))}
+            </div>
+          </motion.div>
+
+          {/* Informations Supplémentaires - déplacées ici et rendues en cartes horizontales */}
+          <motion.div
+            className="overview-stats-section overview-additional-as-cards"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 1.0 }}
+          >
+            <h3>📋 Informations</h3>
+            <div className="overview-stats-grid overview-main-stats">
+              <div className="overview-stat-card overview-main">
+                <div className="overview-stat-icon">📅</div>
+                <div className="overview-stat-info">
+                  <div className="overview-stat-value">
+                    {userProfile && new Date(userProfile.created_at).toLocaleDateString('fr-FR')}
+                  </div>
+                  <div className="overview-stat-label">Créé le</div>
+                </div>
+              </div>
+              <div className="overview-stat-card overview-main">
+                <div className="overview-stat-icon">🕒</div>
+                <div className="overview-stat-info">
+                  <div className="overview-stat-value">
+                    {userProfile && userProfile.last_login && new Date(userProfile.last_login).toLocaleDateString('fr-FR')}
+                  </div>
+                  <div className="overview-stat-label">Dernière connexion</div>
+                </div>
+              </div>
+              <div className="overview-stat-card overview-main">
+                <div className="overview-stat-icon">🎖️</div>
+                <div className="overview-stat-info">
+                  <div className="overview-stat-value">{character.title || 'Aucun Titre'}</div>
+                  <div className="overview-stat-label">Titre</div>
+                </div>
+              </div>
+              <div className="overview-stat-card overview-main">
+                <div className="overview-stat-icon">🏹</div>
+                <div className="overview-stat-info">
+                  <div className="overview-stat-value">{character.class_display_name}</div>
+                  <div className="overview-stat-label">Classe</div>
+                </div>
+              </div>
             </div>
           </motion.div>
         </div>
