@@ -54,20 +54,22 @@ const Character = () => {
         try {
           const statsResponse = await fetch(`/api/characters/${user.id}/stats`, {
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
             }
           });
           
           if (statsResponse.ok) {
             const statsData = await statsResponse.json();
-            // Fusionner les données du personnage avec les stats finales
+            // Adapter au backend: stats.calculated et autres champs déjà présents côté /api/characters/:id
             const characterWithFinalStats = {
               ...characterData,
-              ...statsData.final_stats,
-              equipped_items: statsData.equipped_items
+              stats: {
+                ...characterData.stats,
+                calculated: statsData.stats?.calculated || characterData.stats?.calculated
+              }
             };
             setCharacter(characterWithFinalStats);
-            setFinalStats(statsData.final_stats);
+            setFinalStats(statsData.stats?.calculated || null);
           } else {
             console.warn('Stats API non disponible, utilisation des stats de base');
             setCharacter(characterData);
@@ -97,19 +99,21 @@ const Character = () => {
       if (user && user.id) {
         const statsResponse = await fetch(`/api/characters/${user.id}/stats`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
           }
         });
         
         if (statsResponse.ok) {
           const statsData = await statsResponse.json();
-          setFinalStats(statsData.final_stats);
-          
+          const calculated = statsData.stats?.calculated || null;
+          setFinalStats(calculated);
           // Mettre à jour le personnage avec les nouvelles stats
           setCharacter(prevCharacter => ({
             ...prevCharacter,
-            ...statsData.final_stats,
-            equipped_items: statsData.equipped_items
+            stats: {
+              ...prevCharacter?.stats,
+              calculated: calculated || prevCharacter?.stats?.calculated
+            }
           }));
         }
       }
@@ -123,8 +127,8 @@ const Character = () => {
     try {
       setInventoryLoading(true);
       if (user && user.id) {
-        const inventoryData = await databaseService.getCharacterInventory(user.id);
-        processInventoryData(inventoryData);
+        const items = await databaseService.getCharacterInventory(user.id);
+        processInventoryData(items);
       }
     } catch (err) {
       console.error('Erreur lors du chargement de l\'inventaire:', err);
@@ -139,10 +143,10 @@ const Character = () => {
     const inventoryItems = [];
     const equippedItems = {};
 
-    inventoryData.forEach(item => {
+    (inventoryData || []).forEach(item => {
       const processedItem = {
-        id: item.item_id,
-        name: item.item_display_name || item.item_name,
+        id: item.item_id || item.id,
+        name: item.item_display_name || item.item_name || item.name,
         type: item.item_type,
         icon: item.item_icon || getDefaultIcon(item.item_type),
         rarity: item.rarity_name,
@@ -255,7 +259,7 @@ const Character = () => {
 
       const item = equipment[slotType];
       if (item) {
-        await databaseService.unequipItem(user.id, slotType);
+        await databaseService.unequipItem(user.id, item.id);
         
         setInventory(prev => [...prev, item]);
         setEquipment(prev => ({

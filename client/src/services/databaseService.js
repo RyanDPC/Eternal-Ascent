@@ -72,17 +72,29 @@ class DatabaseService {
   async getCharacterData(characterId) {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      // Premier essai: considérer l'ID fourni comme un characterId
+      let response = await fetch(`${this.baseURL}/characters/${characterId}`);
+
+      // Si non trouvé, tenter de résoudre via le profil (cas où un userId est passé)
+      if (response.status === 404) {
+        const profile = await this.getUserProfile().catch(() => null);
+        const resolvedCharacterId = profile && profile.character ? profile.character.id : null;
+        if (resolvedCharacterId && resolvedCharacterId !== characterId) {
+          response = await fetch(`${this.baseURL}/characters/${resolvedCharacterId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+        }
+      }
 
       if (!response.ok) {
         throw new Error('Échec de récupération des données du personnage');
       }
 
-      return await response.json();
+      const data = await response.json();
+      // Normaliser: renvoyer toujours l'objet personnage plat
+      return data && data.character ? data.character : data;
     } catch (error) {
       console.error('Erreur de récupération du personnage:', error);
       throw error;
@@ -127,7 +139,28 @@ class DatabaseService {
         throw new Error('Échec de récupération de l\'inventaire');
       }
 
-      return await response.json();
+      const data = await response.json();
+      const rawItems = Array.isArray(data) ? data : (data && Array.isArray(data.inventory) ? data.inventory : []);
+      // Normaliser la forme des objets pour correspondre aux attentes du frontend
+      const normalized = rawItems.map(item => ({
+        id: item.id ?? item.item_id,
+        item_id: item.item_id ?? item.id,
+        item_name: item.item_name ?? item.name,
+        item_display_name: item.item_display_name ?? item.display_name ?? item.item_name ?? item.name,
+        item_description: item.item_description ?? item.description ?? '',
+        item_type: item.item_type ?? (item.type ? item.type.name : undefined),
+        equip_slot: item.equip_slot ?? (item.type ? item.type.equip_slot : undefined),
+        rarity_name: item.rarity_name ?? (item.rarity ? item.rarity.name : undefined),
+        rarity_color: item.rarity_color ?? (item.rarity ? item.rarity.color : undefined),
+        item_stats: item.item_stats ?? item.base_stats ?? item.item_base_stats ?? {},
+        item_level: item.item_level ?? item.level_requirement ?? null,
+        quantity: item.quantity ?? 1,
+        equipped: item.equipped ?? false,
+        equipped_slot: item.equipped_slot ?? null,
+        item_icon: item.item_icon ?? item.icon ?? null,
+        item_image: item.item_image ?? item.image ?? null,
+      }));
+      return normalized;
     } catch (error) {
       console.error('Erreur de récupération de l\'inventaire:', error);
       throw error;
@@ -184,12 +217,12 @@ class DatabaseService {
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${this.baseURL}/characters/${characterId}/equip`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ itemId, slot }),
+        body: JSON.stringify({ item_id: itemId, slot }),
       });
 
       if (!response.ok) {
@@ -204,16 +237,16 @@ class DatabaseService {
   }
 
   // Déséquiper un objet
-  async unequipItem(characterId, slot) {
+  async unequipItem(characterId, itemId) {
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${this.baseURL}/characters/${characterId}/unequip`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ slot }),
+        body: JSON.stringify({ item_id: itemId }),
       });
 
       if (!response.ok) {

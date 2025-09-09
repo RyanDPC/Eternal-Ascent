@@ -37,20 +37,22 @@ const Dashboard = () => {
         try {
           const statsResponse = await fetch(`/api/characters/${user.id}/stats`, {
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
             }
           });
           
           if (statsResponse.ok) {
             const statsData = await statsResponse.json();
-            // Fusionner les données du personnage avec les stats finales
+            const calculated = statsData.stats?.calculated || null;
             const characterWithFinalStats = {
               ...characterData,
-              ...statsData.final_stats,
-              equipped_items: statsData.equipped_items
+              stats: {
+                ...characterData.stats,
+                calculated: calculated || characterData.stats?.calculated
+              }
             };
             setCharacter(characterWithFinalStats);
-            setFinalStats(statsData.final_stats);
+            setFinalStats(calculated);
           } else {
             console.warn('Stats API non disponible, utilisation des stats de base');
             setCharacter(characterData);
@@ -78,19 +80,21 @@ const Dashboard = () => {
       if (user && user.id) {
         const statsResponse = await fetch(`/api/characters/${user.id}/stats`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
           }
         });
         
         if (statsResponse.ok) {
           const statsData = await statsResponse.json();
-          setFinalStats(statsData.final_stats);
-          
+          const calculated = statsData.stats?.calculated || null;
+          setFinalStats(calculated);
           // Mettre à jour le personnage avec les nouvelles stats
           setCharacter(prevCharacter => ({
             ...prevCharacter,
-            ...statsData.final_stats,
-            equipped_items: statsData.equipped_items
+            stats: {
+              ...prevCharacter?.stats,
+              calculated: calculated || prevCharacter?.stats?.calculated
+            }
           }));
         }
       }
