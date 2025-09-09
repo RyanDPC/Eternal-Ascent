@@ -1,0 +1,530 @@
+.guilds-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: #ffffff;
+  padding: 20px;
+  font-family: 'Inter', sans-serif;
+}
+
+.guilds-header {
+  text-align: center;
+  margin-bottom: 40px;
+  padding: 30px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.guilds-header h1 {
+  font-size: 2.5rem;
+  margin: 0 0 15px 0;
+  background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.guilds-header p {
+  font-size: 1.2rem;
+  margin: 0;
+  color: #b8c5d6;
+}
+
+.guilds-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+/* Guild Stats */
+.guild-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 25px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.stat-item svg {
+  color: #4ecdc4;
+  flex-shrink: 0;
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #b8c5d6;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Guild Controls */
+.guild-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 250px;
+}
+
+.search-bar svg {
+  color: #b8c5d6;
+}
+
+.search-bar input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 10px 15px;
+  color: #ffffff;
+  font-size: 0.9rem;
+}
+
+.search-bar input::placeholder {
+  color: #b8c5d6;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: #4ecdc4;
+  box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.1);
+}
+
+.create-guild-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.create-guild-btn:hover {
+  background: linear-gradient(135deg, #5a6fd8, #6a4190);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+/* Guilds Grid */
+.guilds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 25px;
+}
+
+.guild-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 25px;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.guild-card.member {
+  border-color: #4ecdc4;
+}
+
+.guild-card.available {
+  border-color: #667eea;
+}
+
+.guild-card.invited {
+  border-color: #fdcb6e;
+}
+
+.guild-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-3px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+}
+
+.guild-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.guild-icon {
+  width: 60px;
+  height: 60px;
+  background: rgba(78, 205, 196, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4ecdc4;
+  flex-shrink: 0;
+}
+
+.guild-info {
+  flex: 1;
+}
+
+.guild-info h3 {
+  font-size: 1.4rem;
+  margin: 0 0 8px 0;
+  color: #ffffff;
+}
+
+.guild-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.guild-level {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(78, 205, 196, 0.2);
+  border: 1px solid rgba(78, 205, 196, 0.3);
+  color: #4ecdc4;
+  font-weight: 600;
+}
+
+.guild-rank {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(253, 203, 110, 0.2);
+  border: 1px solid rgba(253, 203, 110, 0.3);
+  color: #fdcb6e;
+  font-weight: 600;
+}
+
+.guild-status {
+  flex-shrink: 0;
+}
+
+.status-badge {
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.guild-description {
+  color: #b8c5d6;
+  margin-bottom: 20px;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+/* Guild Details */
+.guild-details {
+  margin-bottom: 20px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-size: 0.9rem;
+  color: #b8c5d6;
+}
+
+.detail-value {
+  font-size: 0.9rem;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Guild Achievements */
+.guild-achievements {
+  margin-bottom: 25px;
+}
+
+.guild-achievements h4 {
+  font-size: 1rem;
+  margin: 0 0 12px 0;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.achievements-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.achievement-tag {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  background: rgba(253, 203, 110, 0.2);
+  border: 1px solid rgba(253, 203, 110, 0.3);
+  border-radius: 8px;
+  color: #fdcb6e;
+  font-weight: 600;
+}
+
+/* Guild Actions */
+.guild-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.guild-btn {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.guild-btn.primary {
+  background: linear-gradient(135deg, #4ecdc4, #44a08d);
+  color: white;
+}
+
+.guild-btn.primary:hover {
+  background: linear-gradient(135deg, #26d0ce, #1a9f8f);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(78, 205, 196, 0.4);
+}
+
+.guild-btn.secondary {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.guild-btn.secondary:hover {
+  background: linear-gradient(135deg, #5a6fd8, #6a4190);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.guild-btn.info {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.guild-btn.info:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Development Notice */
+.development-notice {
+  text-align: center;
+  padding: 30px;
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.development-notice h3 {
+  font-size: 1.5rem;
+  margin: 0 0 15px 0;
+  color: #fdcb6e;
+}
+
+.development-notice p {
+  font-size: 1.1rem;
+  margin: 0;
+  color: #b8c5d6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .guilds-page {
+    padding: 15px;
+  }
+  
+  .guilds-header {
+    padding: 20px;
+    margin-bottom: 30px;
+  }
+  
+  .guilds-header h1 {
+    font-size: 2rem;
+  }
+  
+  .guilds-header p {
+    font-size: 1rem;
+  }
+  
+  .guild-stats {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+  }
+  
+  .stat-item {
+    padding: 20px;
+  }
+  
+  .stat-value {
+    font-size: 1.5rem;
+  }
+  
+  .guild-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  
+  .search-bar {
+    min-width: auto;
+  }
+  
+  .guilds-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .guild-card {
+    padding: 20px;
+  }
+  
+  .guild-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+  
+  .guild-meta {
+    justify-content: center;
+  }
+  
+  .guild-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .guilds-page {
+    padding: 10px;
+  }
+  
+  .guilds-header {
+    padding: 15px;
+  }
+  
+  .guilds-header h1 {
+    font-size: 1.8rem;
+  }
+  
+  .guild-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-item {
+    padding: 15px;
+  }
+  
+  .guild-card {
+    padding: 15px;
+  }
+  
+  .guild-icon {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .guild-info h3 {
+    font-size: 1.2rem;
+  }
+  
+  .achievements-list {
+    justify-content: center;
+  }
+}
+
+/* Animation Enhancements */
+.guild-card,
+.stat-item {
+  will-change: transform;
+}
+
+/* Custom Scrollbar */
+.guilds-page::-webkit-scrollbar {
+  width: 8px;
+}
+
+.guilds-page::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.guilds-page::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+.guilds-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+

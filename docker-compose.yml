@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Cache Redis
+  redis:
+    image: redis:7-alpine
+    container_name: eternal-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - eternal-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  # Application Backend + Frontend
+  app:
+    build: .
+    container_name: eternal-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # React frontend
+      - "3001:3001"  # Node.js backend
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      # Base Render (injectée depuis .env du dossier Eternal)
+      - DATABASE_URL=${DATABASE_URL}
+      # Force SSL pour Render si DATABASE_URL n'est pas défini
+      - DB_SSL=true
+      # Configuration Redis
+      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Configuration de l'application
+      - REACT_APP_API_URL=http://localhost:3001
+    volumes:
+      # Monter le code source pour le hot reload
+      - .:/app
+      - /app/node_modules
+      - /app/client/node_modules
+      - /app/server/node_modules
+    depends_on:
+      redis:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    networks:
+      - eternal-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  eternal-network:
+    driver: bridge

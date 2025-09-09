@@ -1,0 +1,326 @@
+/* Composant de notification de sauvegarde */
+.save-notification {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.9rem;
+  color: #ffffff;
+  position: relative;
+  min-width: 300px;
+}
+
+/* Statut de sauvegarde */
+.save-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 80px;
+}
+
+.status-icon {
+  transition: all 0.3s ease;
+}
+
+.status-icon.idle {
+  color: #b8c5d6;
+}
+
+.status-icon.saving {
+  color: #ffa502;
+  animation: spin 1s linear infinite;
+}
+
+.status-icon.success {
+  color: #2ed573;
+}
+
+.status-icon.error {
+  color: #ff4757;
+}
+
+.status-text {
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.status-text.idle {
+  color: #b8c5d6;
+}
+
+.status-text.saving {
+  color: #ffa502;
+}
+
+.status-text.success {
+  color: #2ed573;
+}
+
+.status-text.error {
+  color: #ff4757;
+}
+
+/* Informations de sauvegarde */
+.save-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+}
+
+.last-save-label {
+  font-size: 0.8rem;
+  color: #b8c5d6;
+  font-weight: 400;
+}
+
+.last-save-time {
+  font-size: 0.9rem;
+  color: #4a90e2;
+  font-weight: 600;
+}
+
+/* Bouton de sauvegarde forcée */
+.force-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.force-save-btn.idle {
+  background: linear-gradient(45deg, #4a90e2, #5f9ea0);
+  color: white;
+}
+
+.force-save-btn.saving {
+  background: linear-gradient(45deg, #ffa502, #ff6348);
+  color: white;
+  cursor: not-allowed;
+}
+
+.force-save-btn.success {
+  background: linear-gradient(45deg, #2ed573, #1e90ff);
+  color: white;
+}
+
+.force-save-btn.error {
+  background: linear-gradient(45deg, #ff4757, #ff3742);
+  color: white;
+}
+
+.force-save-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.force-save-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Statut de connexion */
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  min-width: 80px;
+}
+
+.connection-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.connection-status.connected .connection-dot {
+  background: #2ed573;
+  box-shadow: 0 0 8px rgba(46, 213, 115, 0.5);
+}
+
+.connection-status.disconnected .connection-dot {
+  background: #ff4757;
+  box-shadow: 0 0 8px rgba(255, 71, 87, 0.5);
+}
+
+.connection-text {
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.connection-status.connected .connection-text {
+  color: #2ed573;
+}
+
+.connection-status.disconnected .connection-text {
+  color: #ff4757;
+}
+
+/* Notification toast */
+.save-notification-toast {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(15px);
+  border-radius: 8px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 1000;
+  min-width: 200px;
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.toast-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.save-notification-toast.success {
+  border-color: rgba(46, 213, 115, 0.3);
+  background: rgba(46, 213, 115, 0.1);
+}
+
+.save-notification-toast.error {
+  border-color: rgba(255, 71, 87, 0.3);
+  background: rgba(255, 71, 87, 0.1);
+}
+
+.save-notification-toast.saving {
+  border-color: rgba(255, 165, 2, 0.3);
+  background: rgba(255, 165, 2, 0.1);
+}
+
+/* Animation de rotation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .save-notification {
+    flex-direction: column;
+    gap: 10px;
+    min-width: 250px;
+    padding: 16px;
+  }
+
+  .save-status,
+  .save-info,
+  .connection-status {
+    min-width: auto;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .force-save-btn {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .save-notification-toast {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    transform: none;
+    width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .save-notification {
+    min-width: 200px;
+    padding: 12px;
+  }
+
+  .save-status,
+  .save-info,
+  .connection-status {
+    font-size: 0.8rem;
+  }
+
+  .force-save-btn {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Thème sombre/clair */
+@media (prefers-color-scheme: light) {
+  .save-notification {
+    background: rgba(255, 255, 255, 0.9);
+    color: #2c3e50;
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .last-save-label {
+    color: #7f8c8d;
+  }
+
+  .save-notification-toast {
+    background: rgba(255, 255, 255, 0.95);
+    color: #2c3e50;
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Animations d'entrée/sortie */
+.save-notification {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* États de survol */
+.save-notification:hover {
+  border-color: rgba(74, 144, 226, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Focus pour l'accessibilité */
+.force-save-btn:focus {
+  outline: 2px solid #4a90e2;
+  outline-offset: 2px;
+}
+
+/* Transitions fluides */
+.save-notification * {
+  transition: all 0.2s ease;
+}

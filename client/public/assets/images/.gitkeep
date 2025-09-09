@@ -1,0 +1,4 @@
+# Ce fichier assure que le dossier assets/images est inclus dans git
+# Il sera supprimé une fois que les vrais assets seront ajoutés
+
+

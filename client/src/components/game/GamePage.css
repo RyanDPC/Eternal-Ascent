@@ -1,0 +1,840 @@
+/* Page de Jeu */
+.game-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  color: #ffffff;
+  overflow: hidden;
+}
+
+/* Header du jeu */
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(15px);
+  border-bottom: 2px solid #4a90e2;
+  flex-shrink: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.game-header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 25px;
+  background: linear-gradient(45deg, #6c757d, #495057);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.back-btn:hover {
+  box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+  transform: translateY(-2px);
+}
+
+.dungeon-info h1 {
+  font-size: 2rem;
+  color: #4a90e2;
+  text-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+  margin: 0;
+}
+
+.dungeon-info p {
+  color: #b8c5d6;
+  margin: 5px 0 0 0;
+  font-size: 1rem;
+}
+
+/* Progrès du donjon */
+.dungeon-progress {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.dungeon-progress .progress-bar {
+  width: 200px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(74, 144, 226, 0.3);
+}
+
+.dungeon-progress .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a90e2, #7b68ee);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 10px rgba(74, 144, 226, 0.5);
+}
+
+.dungeon-progress span {
+  font-size: 0.9rem;
+  color: #e0e0e0;
+  font-weight: 600;
+  text-shadow: 0 0 5px rgba(74, 144, 226, 0.3);
+}
+
+.game-controls {
+  display: flex;
+  gap: 15px;
+}
+
+.game-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.game-btn.start {
+  background: linear-gradient(45deg, #2ed573, #1e90ff);
+  color: white;
+}
+
+.game-btn.start:hover {
+  box-shadow: 0 6px 20px rgba(46, 213, 115, 0.4);
+}
+
+.game-btn.auto-play {
+  background: linear-gradient(45deg, #9b59b6, #8e44ad);
+  color: white;
+}
+
+.game-btn.auto-play:hover {
+  box-shadow: 0 6px 20px rgba(155, 89, 182, 0.4);
+}
+
+.game-btn.auto-play.active {
+  background: linear-gradient(45deg, #2ed573, #1e90ff);
+  animation: pulse 2s infinite;
+}
+
+.game-btn.pause {
+  background: linear-gradient(45deg, #ffa502, #ff6348);
+  color: white;
+}
+
+.game-btn.pause:hover {
+  box-shadow: 0 6px 20px rgba(255, 165, 2, 0.4);
+}
+
+.game-btn.reset {
+  background: linear-gradient(45deg, #ff4757, #ff3742);
+  color: white;
+}
+
+.game-btn.reset:hover {
+  box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+}
+
+/* Zone principale du jeu */
+.game-main {
+  flex: 1;
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  min-height: 0;
+}
+
+/* Arène de combat */
+.combat-arena {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 20px;
+  border: 3px solid #4a90e2;
+  padding: 40px;
+  position: relative;
+  box-shadow: 0 0 30px rgba(74, 144, 226, 0.3);
+}
+
+/* Personnage en combat */
+.combat-character {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  transition: all 0.3s ease;
+  padding: 20px;
+  border-radius: 15px;
+  background: rgba(74, 144, 226, 0.1);
+  border: 2px solid rgba(74, 144, 226, 0.3);
+}
+
+.combat-character.attacking {
+  animation: attackAnimation 0.5s ease-in-out;
+  background: rgba(74, 144, 226, 0.2);
+  border-color: #4a90e2;
+}
+
+.combat-character.casting {
+  animation: castAnimation 0.8s ease-in-out;
+  background: rgba(155, 89, 182, 0.2);
+  border-color: #9b59b6;
+}
+
+.character-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.character-icon {
+  font-size: 6rem;
+  filter: drop-shadow(0 0 20px rgba(74, 144, 226, 0.8));
+  animation: characterGlow 3s ease-in-out infinite;
+}
+
+.character-name {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #4a90e2;
+  text-shadow: 0 0 15px rgba(74, 144, 226, 0.8);
+}
+
+.character-level {
+  font-size: 1rem;
+  color: #b8c5d6;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 5px 15px;
+  border-radius: 15px;
+  border: 1px solid rgba(74, 144, 226, 0.3);
+}
+
+.character-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 250px;
+}
+
+.bar-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  color: #b8c5d6;
+  font-weight: 500;
+}
+
+.bar-fill {
+  height: 15px;
+  border-radius: 8px;
+  transition: width 0.5s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.character-bars .bar-fill {
+  background: linear-gradient(90deg, #2ed573, #1e90ff);
+}
+
+/* Indicateur VS */
+.vs-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+}
+
+.vs-text {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #ff4757;
+  text-shadow: 0 0 20px rgba(255, 71, 87, 0.8);
+  animation: vsPulse 2s ease-in-out infinite;
+}
+
+.turn-indicator {
+  display: flex;
+  justify-content: center;
+}
+
+.turn-badge {
+  padding: 10px 20px;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.turn-badge.player {
+  background: linear-gradient(45deg, #4a90e2, #5f9ea0);
+  color: white;
+}
+
+.turn-badge.monster {
+  background: linear-gradient(45deg, #ff4757, #ff3742);
+  color: white;
+}
+
+/* Monstre en combat */
+.combat-monster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  transition: all 0.3s ease;
+  padding: 20px;
+  border-radius: 15px;
+  background: rgba(255, 71, 87, 0.1);
+  border: 2px solid rgba(255, 71, 87, 0.3);
+}
+
+.combat-monster.attacking {
+  animation: attackAnimation 0.5s ease-in-out;
+  background: rgba(255, 71, 87, 0.2);
+  border-color: #ff4757;
+}
+
+.monster-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.monster-icon {
+  font-size: 6rem;
+  filter: drop-shadow(0 0 20px rgba(255, 71, 87, 0.8));
+  animation: monsterGlow 3s ease-in-out infinite;
+}
+
+.monster-name {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ff4757;
+  text-shadow: 0 0 15px rgba(255, 71, 87, 0.8);
+}
+
+.monster-level {
+  font-size: 1rem;
+  color: #b8c5d6;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 5px 15px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 71, 87, 0.3);
+}
+
+.monster-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 250px;
+}
+
+.monster-bars .bar-fill {
+  background: linear-gradient(90deg, #ff4757, #ff3742);
+}
+
+/* Effets de statut */
+.status-effects {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.status-effect {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  animation: statusPulse 1s infinite;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.status-effect.buff {
+  background: rgba(46, 213, 115, 0.3);
+  border: 2px solid #2ed573;
+}
+
+.status-effect.debuff {
+  background: rgba(255, 71, 87, 0.3);
+  border: 2px solid #ff4757;
+}
+
+.status-effect.burn {
+  background: rgba(255, 165, 0, 0.3);
+  border: 2px solid #ffa500;
+}
+
+.status-effect.poison {
+  background: rgba(128, 0, 128, 0.3);
+  border: 2px solid #800080;
+}
+
+/* Panneau d'actions */
+.combat-actions {
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.actions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.actions-header h3 {
+  color: #4a90e2;
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.turn-indicator {
+  color: #b8c5d6;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 25px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.loading-skills {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  padding: 30px;
+  color: #b8c5d6;
+}
+
+.loading-spinner {
+  font-size: 3rem;
+  animation: spin 1s linear infinite;
+}
+
+.auto-play-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  padding: 25px;
+  background: rgba(155, 89, 182, 0.2);
+  border: 2px solid rgba(155, 89, 182, 0.5);
+  border-radius: 15px;
+  color: #9b59b6;
+  font-weight: 600;
+  font-size: 1.1rem;
+  animation: pulse 2s infinite;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 30px;
+  border: none;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.action-btn.basic-attack {
+  background: linear-gradient(45deg, #ff4757, #ff3742);
+  color: white;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+.action-btn.basic-attack:hover {
+  box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Grille des compétences */
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.skill-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 15px;
+  border: none;
+  border-radius: 15px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  position: relative;
+  background: linear-gradient(45deg, #4a90e2, #5f9ea0);
+  color: white;
+}
+
+.skill-btn:hover:not(.disabled) {
+  box-shadow: 0 6px 20px rgba(74, 144, 226, 0.4);
+  transform: translateY(-2px);
+}
+
+.skill-btn.disabled {
+  background: linear-gradient(45deg, #6c757d, #495057);
+  color: #adb5bd;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.skill-cost {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.9rem;
+  color: #b8c5d6;
+}
+
+.cooldown-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #ff4757;
+}
+
+/* Journal de combat */
+.combat-log {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+}
+
+.combat-log h3 {
+  color: #4a90e2;
+  text-align: center;
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+}
+
+.log-entries {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.log-entry {
+  padding: 10px 15px;
+  border-radius: 10px;
+  font-size: 1rem;
+  line-height: 1.4;
+  border-left: 4px solid transparent;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.log-entry.info {
+  background: rgba(74, 144, 226, 0.1);
+  border-left-color: #4a90e2;
+  color: #b8c5d6;
+}
+
+.log-entry.damage {
+  background: rgba(255, 71, 87, 0.1);
+  border-left-color: #ff4757;
+  color: #ff6b6b;
+}
+
+.log-entry.healing {
+  background: rgba(46, 213, 115, 0.1);
+  border-left-color: #2ed573;
+  color: #2ed573;
+}
+
+.log-entry.victory {
+  background: rgba(46, 213, 115, 0.1);
+  border-left-color: #2ed573;
+  color: #2ed573;
+}
+
+.log-entry.defeat {
+  background: rgba(255, 71, 87, 0.1);
+  border-left-color: #ff4757;
+  color: #ff4757;
+}
+
+.log-entry.error {
+  background: rgba(255, 165, 0, 0.1);
+  border-left-color: #ffa500;
+  color: #ffa500;
+}
+
+.log-entry.reward {
+  background: rgba(155, 89, 182, 0.1);
+  border-left-color: #9b59b6;
+  color: #9b59b6;
+}
+
+.log-time {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-right: 15px;
+  font-weight: 500;
+}
+
+.log-message {
+  flex: 1;
+}
+
+/* Page d'erreur */
+.game-page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  color: #ffffff;
+  text-align: center;
+  gap: 20px;
+}
+
+.game-page-error h2 {
+  font-size: 2rem;
+  color: #ff4757;
+  margin: 0;
+}
+
+.game-page-error p {
+  font-size: 1.2rem;
+  color: #b8c5d6;
+  margin: 0;
+}
+
+.game-page-error button {
+  padding: 15px 30px;
+  border: none;
+  border-radius: 25px;
+  background: linear-gradient(45deg, #4a90e2, #5f9ea0);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.game-page-error button:hover {
+  box-shadow: 0 6px 20px rgba(74, 144, 226, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .game-main {
+    flex-direction: column;
+  }
+  
+  .combat-actions {
+    width: 100%;
+  }
+  
+  .combat-arena {
+    min-height: 400px;
+    flex-direction: column;
+    gap: 30px;
+    padding: 30px;
+  }
+  
+  .vs-indicator {
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+  }
+  
+  .character-bars,
+  .monster-bars {
+    width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .game-header {
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+    padding: 20px;
+  }
+  
+  .game-header-left {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .game-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .game-btn {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+  
+  .combat-arena {
+    padding: 20px;
+    gap: 20px;
+  }
+  
+  .character-icon,
+  .monster-icon {
+    font-size: 4rem;
+  }
+  
+  .vs-text {
+    font-size: 2rem;
+  }
+  
+  .skills-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .character-bars,
+  .monster-bars {
+    width: 150px;
+  }
+}
+
+/* Animations */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes attackAnimation {
+  0% { transform: translateX(0) scale(1); }
+  50% { transform: translateX(30px) scale(1.1); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+@keyframes castAnimation {
+  0% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.1) rotate(5deg); }
+  50% { transform: scale(1.2) rotate(-5deg); }
+  75% { transform: scale(1.1) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes statusPulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes characterGlow {
+  0%, 100% { filter: drop-shadow(0 0 20px rgba(74, 144, 226, 0.8)); }
+  50% { filter: drop-shadow(0 0 30px rgba(74, 144, 226, 1)); }
+}
+
+@keyframes monsterGlow {
+  0%, 100% { filter: drop-shadow(0 0 20px rgba(255, 71, 87, 0.8)); }
+  50% { filter: drop-shadow(0 0 30px rgba(255, 71, 87, 1)); }
+}
+
+@keyframes vsPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Scrollbar personnalisée */
+.log-entries::-webkit-scrollbar {
+  width: 8px;
+}
+
+.log-entries::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.log-entries::-webkit-scrollbar-thumb {
+  background: rgba(74, 144, 226, 0.5);
+  border-radius: 4px;
+}
+
+.log-entries::-webkit-scrollbar-thumb:hover {
+  background: rgba(74, 144, 226, 0.7);
+}
+

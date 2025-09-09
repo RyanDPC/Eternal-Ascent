@@ -1,0 +1,819 @@
+/* Système de Combat */
+.combat-system {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Header du combat */
+.combat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 2px solid #4a90e2;
+  flex-shrink: 0;
+}
+
+.combat-header h2 {
+  font-size: 1.8rem;
+  color: #4a90e2;
+  text-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+  margin: 0;
+}
+
+.combat-controls {
+  display: flex;
+  gap: 15px;
+}
+
+.combat-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.combat-btn.start {
+  background: linear-gradient(45deg, #2ed573, #1e90ff);
+  color: white;
+}
+
+.combat-btn.start:hover {
+  box-shadow: 0 6px 20px rgba(46, 213, 115, 0.4);
+}
+
+.combat-btn.pause {
+  background: linear-gradient(45deg, #ffa502, #ff6348);
+  color: white;
+}
+
+.combat-btn.pause:hover {
+  box-shadow: 0 6px 20px rgba(255, 165, 2, 0.4);
+}
+
+.combat-btn.reset {
+  background: linear-gradient(45deg, #ff4757, #ff3742);
+  color: white;
+}
+
+.combat-btn.reset:hover {
+  box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+}
+
+.combat-btn.auto-play {
+  background: linear-gradient(45deg, #9b59b6, #8e44ad);
+  color: white;
+}
+
+.combat-btn.auto-play:hover {
+  box-shadow: 0 6px 20px rgba(155, 89, 182, 0.4);
+}
+
+.combat-btn.auto-play.active {
+  background: linear-gradient(45deg, #2ed573, #1e90ff);
+  animation: pulse 2s infinite;
+}
+
+.combat-btn.close {
+  background: linear-gradient(45deg, #6c757d, #495057);
+  color: white;
+}
+
+.combat-btn.close:hover {
+  box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+}
+
+/* Zone principale du combat */
+.combat-main {
+  flex: 1;
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  min-height: 0;
+}
+
+/* Zone de combat 3D */
+.combat-3d-zone {
+  flex: 1;
+  position: relative;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+  border: 2px solid #4a90e2;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Arène de combat */
+.combat-arena {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  position: relative;
+}
+
+/* Personnage en combat */
+.combat-character {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  transition: all 0.3s ease;
+}
+
+.combat-character.attacking {
+  animation: attackAnimation 0.5s ease-in-out;
+}
+
+.combat-character.casting {
+  animation: castAnimation 0.8s ease-in-out;
+}
+
+.character-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.character-icon {
+  font-size: 4rem;
+  filter: drop-shadow(0 0 10px rgba(74, 144, 226, 0.5));
+}
+
+.character-name {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #4a90e2;
+  text-shadow: 0 0 10px rgba(74, 144, 226, 0.5);
+}
+
+.character-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 200px;
+}
+
+.bar-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.9rem;
+  color: #b8c5d6;
+}
+
+.bar-fill {
+  height: 12px;
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+
+.character-bars .bar-fill {
+  background: linear-gradient(90deg, #2ed573, #1e90ff);
+}
+
+/* Monstre en combat */
+.combat-monster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  transition: all 0.3s ease;
+}
+
+.combat-monster.attacking {
+  animation: attackAnimation 0.5s ease-in-out;
+}
+
+.monster-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.monster-icon {
+  font-size: 4rem;
+  filter: drop-shadow(0 0 10px rgba(255, 71, 87, 0.5));
+}
+
+.monster-name {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ff4757;
+  text-shadow: 0 0 10px rgba(255, 71, 87, 0.5);
+}
+
+.monster-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 200px;
+}
+
+.monster-bars .bar-fill {
+  background: linear-gradient(90deg, #ff4757, #ff3742);
+}
+
+/* Effets de statut */
+.status-effects {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.status-effect {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  animation: statusPulse 1s infinite;
+}
+
+.status-effect.buff {
+  background: rgba(46, 213, 115, 0.3);
+  border: 1px solid #2ed573;
+}
+
+.status-effect.debuff {
+  background: rgba(255, 71, 87, 0.3);
+  border: 1px solid #ff4757;
+}
+
+.status-effect.burn {
+  background: rgba(255, 165, 0, 0.3);
+  border: 1px solid #ffa500;
+}
+
+.status-effect.poison {
+  background: rgba(128, 0, 128, 0.3);
+  border: 1px solid #800080;
+}
+
+/* Container pour CharacterPreview dans le combat */
+.character-preview-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.combat-character-preview {
+  transform: scale(0.8);
+  transition: all 0.3s ease;
+}
+
+.combat-character-preview:hover {
+  transform: scale(0.85);
+}
+
+.combat-canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 15px;
+}
+
+.combat-overlay {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.turn-indicator {
+  display: flex;
+  justify-content: center;
+}
+
+.turn-badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+.turn-badge.player {
+  background: linear-gradient(45deg, #4a90e2, #5f9ea0);
+  color: white;
+}
+
+.turn-badge.monster {
+  background: linear-gradient(45deg, #ff4757, #ff3742);
+  color: white;
+}
+
+/* Panneau de combat */
+.combat-panel {
+  width: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+/* Stats des personnages */
+.character-stats,
+.monster-stats {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.character-stats h3,
+.monster-stats h3 {
+  color: #4a90e2;
+  text-align: center;
+  margin: 0 0 20px 0;
+  font-size: 1.3rem;
+}
+
+.monster-stats h3 {
+  color: #ff4757;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-label {
+  color: #b8c5d6;
+  font-weight: 500;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stat-value {
+  color: #4a90e2;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.monster-stats .stat-value {
+  color: #ff4757;
+}
+
+/* Sections PV et Mana */
+.health-section,
+.mana-section {
+  margin-bottom: 15px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.health-bar,
+.mana-bar {
+  width: 100%;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.health-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff4757, #ff3742);
+  border-radius: 10px;
+  position: relative;
+}
+
+.health-fill.monster {
+  background: linear-gradient(90deg, #ff6b6b, #ee5a52);
+}
+
+.mana-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3742fa, #2f3542);
+  border-radius: 10px;
+  position: relative;
+}
+
+/* Actions de combat */
+.combat-actions {
+  width: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.actions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.actions-header h3 {
+  color: #4a90e2;
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.turn-indicator {
+  color: #b8c5d6;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.loading-skills {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  color: #b8c5d6;
+}
+
+.loading-spinner {
+  font-size: 2rem;
+  animation: spin 1s linear infinite;
+}
+
+.auto-play-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  background: rgba(155, 89, 182, 0.2);
+  border: 1px solid rgba(155, 89, 182, 0.5);
+  border-radius: 15px;
+  color: #9b59b6;
+  font-weight: 600;
+  animation: pulse 2s infinite;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 30px;
+  border: none;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.action-btn.attack {
+  background: linear-gradient(45deg, #ff4757, #ff3742);
+  color: white;
+}
+
+.action-btn.attack:hover {
+  box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+  transform: translateY(-2px);
+}
+
+.action-btn.basic-attack {
+  background: linear-gradient(45deg, #ff4757, #ff3742);
+  color: white;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.action-btn.basic-attack:hover {
+  box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Grille des compétences */
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.skill-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 10px;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  position: relative;
+  background: linear-gradient(45deg, #4a90e2, #5f9ea0);
+  color: white;
+}
+
+.skill-btn:hover:not(.disabled) {
+  box-shadow: 0 6px 20px rgba(74, 144, 226, 0.4);
+  transform: translateY(-2px);
+}
+
+.skill-btn.disabled {
+  background: linear-gradient(45deg, #6c757d, #495057);
+  color: #adb5bd;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.skill-cost {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #b8c5d6;
+}
+
+.cooldown-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ff4757;
+}
+
+/* Journal de combat */
+.combat-log {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+}
+
+.combat-log h3 {
+  color: #4a90e2;
+  text-align: center;
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+}
+
+.log-entries {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-entry {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  border-left: 3px solid transparent;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.log-time {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-right: 10px;
+}
+
+.log-message {
+  flex: 1;
+}
+
+.battle-log h4 {
+  color: #4a90e2;
+  text-align: center;
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+}
+
+.log-content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-entry {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  border-left: 3px solid transparent;
+}
+
+.log-entry.info {
+  background: rgba(74, 144, 226, 0.1);
+  border-left-color: #4a90e2;
+  color: #b8c5d6;
+}
+
+.log-entry.damage {
+  background: rgba(255, 71, 87, 0.1);
+  border-left-color: #ff4757;
+  color: #ff6b6b;
+}
+
+.log-entry.victory {
+  background: rgba(46, 213, 115, 0.1);
+  border-left-color: #2ed573;
+  color: #2ed573;
+}
+
+.log-entry.defeat {
+  background: rgba(255, 71, 87, 0.1);
+  border-left-color: #ff4757;
+  color: #ff4757;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .combat-main {
+    flex-direction: column;
+  }
+  
+  .combat-actions {
+    width: 100%;
+  }
+  
+  .combat-3d-zone {
+    min-height: 300px;
+  }
+  
+  .combat-arena {
+    flex-direction: column;
+    gap: 30px;
+  }
+  
+  .character-bars,
+  .monster-bars {
+    width: 150px;
+  }
+}
+
+@media (max-width: 768px) {
+  .combat-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .combat-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .combat-btn {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+  
+  .stat-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .combat-3d-zone {
+    min-height: 250px;
+  }
+  
+  .combat-log {
+    min-height: 150px;
+  }
+  
+  .skills-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .character-icon,
+  .monster-icon {
+    font-size: 3rem;
+  }
+}
+
+/* Animations spéciales */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes attackAnimation {
+  0% { transform: translateX(0) scale(1); }
+  50% { transform: translateX(20px) scale(1.1); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+@keyframes castAnimation {
+  0% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.1) rotate(5deg); }
+  50% { transform: scale(1.2) rotate(-5deg); }
+  75% { transform: scale(1.1) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes statusPulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.combat-system.active .combat-3d-zone {
+  animation: pulse 2s infinite;
+}
+
+/* Scrollbar personnalisée */
+.log-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.log-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.log-content::-webkit-scrollbar-thumb {
+  background: rgba(74, 144, 226, 0.5);
+  border-radius: 3px;
+}
+
+.log-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(74, 144, 226, 0.7);
+}
