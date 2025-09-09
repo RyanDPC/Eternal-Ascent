@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const talentsData = require('../data/sid/talents');
 
 // Middleware pour injecter le service de cache
 const injectCacheService = (req, res, next) => {

@@ -325,42 +325,61 @@ class DatabaseService {
     }
   }
 
-  // Récupérer les quêtes disponibles
-  async getAvailableQuests() {
+  // Récupérer les quêtes disponibles pour un personnage
+  async getAvailableQuests(characterId) {
     try {
-      const response = await fetch(`${this.baseURL}/quests`);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${this.baseURL}/systems/quests/available/character/${characterId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
       if (!response.ok) {
         throw new Error('Échec de récupération des quêtes');
       }
 
-      return await response.json();
+      const data = await response.json();
+      // Normaliser en tableau plat pour le composant (daily + weekly)
+      const daily = Array.isArray(data.data?.daily) ? data.data.daily : [];
+      const weekly = Array.isArray(data.data?.weekly) ? data.data.weekly : [];
+      return [...daily, ...weekly].map((q) => ({
+        id: q.id,
+        title: q.name,
+        description: q.description,
+        type: q.requirements?.type || q.type,
+        rarity: 'common',
+        min_level: q.level || 1,
+        exp_reward: q.rewards?.experience || 0,
+        gold_reward: q.rewards?.gold || 0,
+        item_rewards: (q.rewards?.items || []).map(it => `${it.itemId} x${it.quantity}`),
+        available: true
+      }));
     } catch (error) {
       console.error('Erreur de récupération des quêtes:', error);
       throw error;
     }
   }
 
-  // Mettre à jour la progression d'une quête
-  async updateQuestProgress(characterId, questId, progress) {
+  // Démarrer une quête
+  async startQuest(characterId, questId) {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/quests/${questId}`, {
-        method: 'PUT',
+      const response = await fetch(`${this.baseURL}/systems/quests/start`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ progress }),
+        body: JSON.stringify({ characterId, questId })
       });
 
       if (!response.ok) {
-        throw new Error('Échec de la mise à jour de la progression de la quête');
+        const errText = await response.text();
+        throw new Error(errText || 'Échec du démarrage de la quête');
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Erreur de mise à jour de la progression de la quête:', error);
+      console.error('Erreur démarrage quête:', error);
       throw error;
     }
   }
