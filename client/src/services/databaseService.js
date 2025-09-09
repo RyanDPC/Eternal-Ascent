@@ -89,6 +89,27 @@ class DatabaseService {
     }
   }
 
+  // Récupérer le personnage courant (via JWT)
+  async getCurrentCharacterData() {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${this.baseURL}/characters/current`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Échec de récupération des données du personnage actuel');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Erreur de récupération du personnage actuel:', error);
+      throw error;
+    }
+  }
+
   // Sauvegarder les données du personnage
   async saveCharacterData(characterData) {
     try {

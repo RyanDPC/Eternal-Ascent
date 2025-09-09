@@ -37,6 +37,125 @@ const injectDataService = (req, res, next) => {
 };
 
 /**
+ * GET /api/characters/current
+ * Récupère le personnage du user courant (via JWT)
+ */
+router.get('/current', authenticateToken, injectDataService, async (req, res) => {
+  try {
+    const userId = req.user && req.user.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Utilisateur non authentifié' });
+    }
+
+    // Récupérer le personnage associé à l'utilisateur
+    const rows = await req.dataService.executePrepared('get_character_by_user', [userId]);
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: 'Aucun personnage associé à cet utilisateur' });
+    }
+
+    const characterId = rows[0].id;
+    const character = await req.dataService.getCharacter(characterId);
+    if (!character) {
+      return res.status(404).json({ error: 'Personnage non trouvé' });
+    }
+
+    return res.json({
+      success: true,
+      character: {
+        id: character.id,
+        name: character.name,
+        class: {
+          id: character.class_id,
+          name: character.class_name,
+          display_name: character.class_display_name,
+          rarity: {
+            name: character.class_rarity_name,
+            color: character.class_rarity_color
+          }
+        },
+        level: character.level,
+        experience: character.experience,
+        experience_to_next: character.experience_to_next,
+        stats: {
+          base: {
+            health: character.health,
+            max_health: character.max_health,
+            mana: character.mana,
+            max_mana: character.max_mana,
+            attack: character.attack,
+            defense: character.defense,
+            magic_attack: character.magic_attack,
+            magic_defense: character.magic_defense,
+            critical_rate: character.critical_rate,
+            critical_damage: character.critical_damage
+          },
+          secondary: {
+            vitality: character.vitality,
+            strength: character.strength,
+            intelligence: character.intelligence,
+            agility: character.agility,
+            resistance: character.resistance,
+            precision: character.precision,
+            endurance: character.endurance,
+            wisdom: character.wisdom,
+            constitution: character.constitution,
+            dexterity: character.dexterity
+          },
+          derived: {
+            health_regen: character.health_regen,
+            mana_regen: character.mana_regen,
+            attack_speed: character.attack_speed,
+            movement_speed: character.movement_speed,
+            dodge_chance: character.dodge_chance,
+            block_chance: character.block_chance,
+            parry_chance: character.parry_chance,
+            spell_power: character.spell_power,
+            physical_power: character.physical_power
+          },
+          calculated: character.calculated_stats
+        },
+        inventory: character.inventory.map(item => ({
+          id: item.id,
+          item_id: item.item_id,
+          name: item.item_name,
+          display_name: item.item_display_name,
+          description: item.item_description,
+          type: {
+            name: item.item_type,
+            display_name: item.item_type_display_name,
+            category: item.item_category,
+            equip_slot: item.item_equip_slot
+          },
+          rarity: {
+            name: item.rarity_name,
+            display_name: item.rarity_display_name,
+            color: item.rarity_color
+          },
+          level_requirement: item.level_requirement,
+          base_stats: item.item_base_stats,
+          effects: item.item_effects,
+          quantity: item.quantity,
+          equipped: item.equipped,
+          equipped_slot: item.equipped_slot,
+          icon: item.item_icon,
+          image: item.item_image
+        })),
+        user: {
+          username: character.username,
+          email: character.email,
+          last_login: character.last_login
+        },
+        created_at: character.created_at,
+        updated_at: character.updated_at
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching current character:', error);
+    return res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+/**
  * GET /api/characters/:id
  * Récupère un personnage complet avec cache optimisé
  */
@@ -156,8 +275,25 @@ router.get('/:id/stats', validateCharacterId, injectDataService, async (req, res
       return res.status(404).json({ error: 'Personnage non trouvé' });
     }
 
+    const equippedItems = (character.inventory || []).filter(i => i.equipped);
+
     res.json({
       success: true,
+      // Compat: réponse élargie pour le Dashboard
+      final_stats: character.calculated_stats,
+      equipped_items: equippedItems.map(item => ({
+        id: item.id,
+        item_id: item.item_id,
+        name: item.item_name,
+        display_name: item.item_display_name,
+        type: item.item_type,
+        rarity: item.rarity_name,
+        base_stats: item.item_base_stats,
+        effects: item.item_effects,
+        equipped_slot: item.equipped_slot,
+        icon: item.item_icon
+      })),
+      // Champs détaillés conservés
       stats: {
         calculated: character.calculated_stats,
         base: {
