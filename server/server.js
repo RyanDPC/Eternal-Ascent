@@ -11,6 +11,7 @@ const morgan = require('morgan');
 const OptimizedDataService = require('./services/OptimizedDataService');
 const CacheService = require('./services/CacheService');
 const QuestSystem = require('./systems/quests');
+const WebSocketManager = require('./websocket/WebSocketManager');
 
 // Routes optimisées
 const optimizedCharacterRoutes = require('./routes/optimized-characters');
@@ -18,6 +19,7 @@ const optimizedItemRoutes = require('./routes/optimized-items');
 const staticRoutes = require('./routes/static');
 const systemsRoutes = require('./routes/systems');
 const talentsRoutes = require('./routes/talents');
+const combatRoutes = require('./routes/combat');
 const authenticateToken = require('./middleware/auth');
 
 const app = express();
@@ -27,6 +29,7 @@ const PORT = process.env.PORT || 3001;
 let dataService;
 let cacheService;
 let systems;
+let wsManager;
 
 // =====================================================
 // MIDDLEWARE DE SÉCURITÉ ET PERFORMANCE
@@ -237,6 +240,7 @@ app.use('/api/items', optimizedItemRoutes);
 // Routes des données statiques
 app.use('/api/static', staticRoutes);
 app.use('/api/talents', talentsRoutes);
+app.use('/api', combatRoutes);
 
 // Injecter et monter les systèmes avancés
 app.use((req, res, next) => {
@@ -590,6 +594,10 @@ async function startServer() {
       console.log(`   ✅ Index composites: Activés`);
       console.log(`   ✅ Pagination intelligente: Activée`);
     });
+
+    // WebSocket
+    wsManager = new WebSocketManager(server);
+    systems.set('websocket', wsManager);
 
     // Gestion gracieuse de l'arrêt
     process.on('SIGTERM', async () => {

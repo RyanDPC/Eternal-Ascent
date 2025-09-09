@@ -5,6 +5,7 @@ const router = express.Router();
 
 // Middleware d'authentification
 const authenticateToken = require('../middleware/auth');
+const { trackEconomyChange } = require('../middleware/antiCheat');
 
 // Middleware de validation
 const validateParams = require('../middleware/validation');
@@ -582,7 +583,42 @@ router.get('/quests/available/character/:characterId', authenticateToken, (req, 
   }
 });
 
-router.post('/quests/start', authenticateToken, validateParams(['characterId', 'questId']), (req, res) => {
+// Endpoint de notification loot → websocket
+router.post('/loot/notify', authenticateToken, validateParams(['characterId', 'items']), (req, res) => {
+  try {
+    const { characterId, items } = req.body;
+    const ws = req.systems.get('websocket');
+    if (ws) {
+      ws.sendNotification(req.user.userId, {
+        title: 'Loot reçu',
+        body: `Vous avez reçu ${items.length} objet(s)`
+      });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erreur notification loot' });
+  }
+});
+
+// Endpoint de notification guilde → websocket
+router.post('/guilds/:guildId/notify', authenticateToken, (req, res) => {
+  try {
+    const { guildId } = req.params;
+    const { message } = req.body || {};
+    const ws = req.systems.get('websocket');
+    if (ws) {
+      ws.broadcastNotification({
+        title: 'Guilde',
+        body: message || `Nouvelle notification pour la guilde ${guildId}`
+      });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erreur notification guilde' });
+  }
+});
+
+router.post('/quests/start', authenticateToken, validateParams(['characterId', 'questId']), trackEconomyChange({ xp: 100, gold: 0 }), (req, res) => {
   try {
     const { characterId, questId } = req.body;
     const questSystem = req.systems.get('quests');
