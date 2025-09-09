@@ -29,11 +29,11 @@ const Dungeons = () => {
 
           // Charger les donjons disponibles
           const availableDungeons = await databaseService.getAvailableDungeons();
-          setDungeons(availableDungeons);
+          setDungeons(Array.isArray(availableDungeons) ? availableDungeons : []);
 
           // Charger les difficultés
           const difficultiesData = await databaseService.getDifficulties();
-          setDifficulties(difficultiesData);
+          setDifficulties(Array.isArray(difficultiesData) ? difficultiesData : []);
         }
       } catch (err) {
         console.error('Erreur lors du chargement des donjons:', err);

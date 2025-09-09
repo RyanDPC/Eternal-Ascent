@@ -82,7 +82,9 @@ class DatabaseService {
         throw new Error('Échec de récupération des données du personnage');
       }
 
-      return await response.json();
+      const data = await response.json();
+      // Unwrap when API returns { success, character }
+      return data.character || data;
     } catch (error) {
       console.error('Erreur de récupération du personnage:', error);
       throw error;
@@ -127,7 +129,9 @@ class DatabaseService {
         throw new Error('Échec de récupération de l\'inventaire');
       }
 
-      return await response.json();
+      const data = await response.json();
+      // Unwrap when API returns { success, inventory }
+      return Array.isArray(data) ? data : (data.inventory || []);
     } catch (error) {
       console.error('Erreur de récupération de l\'inventaire:', error);
       throw error;
@@ -184,12 +188,12 @@ class DatabaseService {
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${this.baseURL}/characters/${characterId}/equip`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ itemId, slot }),
+        body: JSON.stringify({ item_id: itemId, slot }),
       });
 
       if (!response.ok) {
@@ -208,12 +212,12 @@ class DatabaseService {
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${this.baseURL}/characters/${characterId}/unequip`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ slot }),
+        body: JSON.stringify({ item_id: slot }),
       });
 
       if (!response.ok) {
@@ -230,13 +234,14 @@ class DatabaseService {
   // Récupérer les donjons disponibles
   async getAvailableDungeons() {
     try {
-      const response = await fetch(`${this.baseURL}/dungeons`);
+      const response = await fetch(`${this.baseURL}/static/dungeons`);
 
       if (!response.ok) {
         throw new Error('Échec de récupération des donjons');
       }
 
-      return await response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : (data.dungeons || []);
     } catch (error) {
       console.error('Erreur de récupération des donjons:', error);
       throw error;
@@ -246,13 +251,14 @@ class DatabaseService {
   // Récupérer toutes les difficultés
   async getDifficulties() {
     try {
-      const response = await fetch(`${this.baseURL}/difficulties`);
+      const response = await fetch(`${this.baseURL}/static/difficulties`);
 
       if (!response.ok) {
         throw new Error('Échec de récupération des difficultés');
       }
 
-      return await response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : (data.difficulties || []);
     } catch (error) {
       console.error('Erreur de récupération des difficultés:', error);
       throw error;
@@ -273,7 +279,9 @@ class DatabaseService {
         throw new Error('Échec de récupération des stats du personnage');
       }
 
-      return await response.json();
+      const data = await response.json();
+      // Normalize possible shapes
+      return data.final_stats || data.stats || data;
     } catch (error) {
       console.error('Erreur de récupération des stats du personnage:', error);
       throw error;
@@ -328,13 +336,14 @@ class DatabaseService {
   // Récupérer les quêtes disponibles
   async getAvailableQuests() {
     try {
-      const response = await fetch(`${this.baseURL}/quests`);
+      const response = await fetch(`${this.baseURL}/static/quests`);
 
       if (!response.ok) {
         throw new Error('Échec de récupération des quêtes');
       }
 
-      return await response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : (data.quests || []);
     } catch (error) {
       console.error('Erreur de récupération des quêtes:', error);
       throw error;

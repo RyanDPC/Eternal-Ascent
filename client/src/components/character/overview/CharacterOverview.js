@@ -279,7 +279,7 @@ const CharacterOverview = ({
             </div>
             <div className="overview-character-details">
               <h2>{character.name}</h2>
-              <p className="overview-character-class">{character.class_name}</p>
+              <p className="overview-character-class">{character.class_display_name || character.class_name}</p>
               <div className="overview-character-level">
                 <span>Niveau {character.level}</span>
                 <div className="overview-exp-bar">
@@ -405,7 +405,7 @@ const CharacterOverview = ({
                 <strong>Titre:</strong> {character.title || 'Aucun Titre'}
               </div>
               <div className="overview-info-item">
-                <strong>Classe:</strong> {character.class_display_name}
+                <strong>Classe:</strong> {character.class_display_name || character.class_name}
               </div>
             </div>
           </motion.div>

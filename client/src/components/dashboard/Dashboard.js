@@ -332,7 +332,7 @@ const Dashboard = () => {
         <h1>🏠 Tableau de Bord</h1>
         <p>Bienvenue, {character.name} ! Niveau {character.level}</p>
         <div className="character-class">
-          <span className="class-badge">{character.class_name}</span>
+          <span className="class-badge">{character.class_display_name || character.class_name || 'Classe'}</span>
         </div>
       </motion.div>
 
@@ -509,7 +509,7 @@ const Dashboard = () => {
               <strong>Nom:</strong> {character.name}
             </div>
             <div className="info-item">
-              <strong>Classe:</strong> {character.class_display_name}
+              <strong>Classe:</strong> {character.class_display_name || character.class_name}
             </div>
             <div className="info-item">
               <strong>Niveau:</strong> {character.level}
