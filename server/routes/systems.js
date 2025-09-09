@@ -583,6 +583,18 @@ router.get('/quests/available/character/:characterId', authenticateToken, (req, 
   }
 });
 
+// Rotation quotidienne de quêtes (max 10 avec quotas 2/2/2)
+router.get('/quests/rotation/character/:characterId', authenticateToken, async (req, res) => {
+  try {
+    const { characterId } = req.params;
+    const rotationService = req.systems.get('rotations');
+    const quests = await rotationService.getDailyQuestRotation(characterId);
+    res.json({ success: true, data: quests });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Erreur rotation quêtes' });
+  }
+});
+
 // Endpoint de notification loot → websocket
 router.post('/loot/notify', authenticateToken, validateParams(['characterId', 'items']), (req, res) => {
   try {

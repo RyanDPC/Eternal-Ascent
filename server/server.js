@@ -12,6 +12,7 @@ const OptimizedDataService = require('./services/OptimizedDataService');
 const CacheService = require('./services/CacheService');
 const QuestSystem = require('./systems/quests');
 const WebSocketManager = require('./websocket/WebSocketManager');
+const RotationService = require('./services/RotationService');
 
 // Routes optimisées
 const optimizedCharacterRoutes = require('./routes/optimized-characters');
@@ -30,6 +31,7 @@ let dataService;
 let cacheService;
 let systems;
 let wsManager;
+let rotationService;
 
 // =====================================================
 // MIDDLEWARE DE SÉCURITÉ ET PERFORMANCE
@@ -578,6 +580,8 @@ async function startServer() {
     // Initialiser les systèmes (ex: quêtes)
     systems = new Map();
     systems.set('quests', new QuestSystem(dataService.pool));
+    rotationService = new RotationService(dataService, cacheService, systems.get('quests'));
+    systems.set('rotations', rotationService);
     
     // Démarrer le serveur
     const server = app.listen(PORT, () => {

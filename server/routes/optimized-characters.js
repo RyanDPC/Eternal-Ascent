@@ -445,7 +445,26 @@ router.post('/:id/level-up', authenticateToken, validateCharacterId, injectDataS
  */
 router.get('/:id/dungeons', authenticateToken, validateCharacterId, injectDataService, async (req, res) => {
   try {
-    const dungeons = await req.dataService.executePrepared('get_character_dungeons', [req.characterId]);
+    const rotationService = req.app.locals.systems?.get('rotations');
+    let dungeons;
+    if (rotationService) {
+      // Use character to derive level segment and get daily rotation
+      const character = await req.dataService.getCharacter(req.characterId, true);
+      const daily = await rotationService.getDailyDungeonRotation(character);
+      dungeons = daily.map(d => ({
+        dungeon_id: d.id,
+        dungeon_name: d.name,
+        dungeon_display_name: d.display_name,
+        level_requirement: d.level_requirement,
+        difficulty_name: d.difficulty_name,
+        status: 'available',
+        best_time: null,
+        completion_count: null,
+        last_completed: null
+      }));
+    } else {
+      dungeons = await req.dataService.executePrepared('get_character_dungeons', [req.characterId]);
+    }
     
     res.json({
       success: true,
