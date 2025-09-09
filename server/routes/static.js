@@ -400,5 +400,82 @@ router.post('/cache/refresh', injectCacheService, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/static/difficulties
+ * Récupère les difficultés disponibles (depuis SID ou cache)
+ */
+router.get('/difficulties', injectCacheService, async (req, res) => {
+  try {
+    // Try cache first
+    const cached = await req.cacheService.getStaticData('difficulties');
+    let difficulties = cached;
+
+    if (!difficulties) {
+      // Fallback to SID generator
+      try {
+        const difficultyManager = require('../data/sid/difficulties');
+        if (difficultyManager.getAllDifficulties().length === 0) {
+          difficultyManager.generateDifficulties();
+        }
+        difficulties = difficultyManager.getAllDifficulties();
+        await req.cacheService.cacheStaticData('difficulties', difficulties, 86400);
+      } catch (e) {
+        return res.status(503).json({ error: 'Données non disponibles' });
+      }
+    }
+
+    res.json({
+      success: true,
+      difficulties
+    });
+  } catch (error) {
+    console.error('❌ Error fetching difficulties:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+/**
+ * GET /api/static/quests
+ * Récupère les quêtes disponibles (liste simple)
+ */
+router.get('/quests', injectCacheService, async (req, res) => {
+  try {
+    // No cache preloader for quests yet; query DB directly if available
+    const db = req.app.locals.dataService?.pool;
+    if (!db) {
+      return res.status(503).json({ error: 'Données non disponibles' });
+    }
+
+    const result = await db.query(
+      `SELECT id, title, description, type, level_requirement, icon
+       FROM quests
+       ORDER BY id`
+    );
+
+    // Normalize to expected client shape
+    const quests = result.rows.map(q => ({
+      id: q.id,
+      title: q.title,
+      description: q.description,
+      type: q.type,
+      min_level: q.level_requirement,
+      rarity: 'common',
+      exp_reward: 0,
+      gold_reward: 0,
+      objective: 'Compléter la quête',
+      location: 'Partout',
+      completed: false,
+      in_progress: false,
+      available: true,
+      icon: q.icon || '📜'
+    }));
+
+    res.json({ success: true, quests });
+  } catch (error) {
+    console.error('❌ Error fetching quests:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
 module.exports = router;
 

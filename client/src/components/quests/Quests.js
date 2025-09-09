@@ -26,7 +26,7 @@ const Quests = () => {
 
           // Charger les quêtes disponibles
           const availableQuests = await databaseService.getAvailableQuests();
-          setQuests(availableQuests);
+          setQuests(Array.isArray(availableQuests) ? availableQuests : []);
         }
       } catch (err) {
         console.error('Erreur lors du chargement des quêtes:', err);
@@ -221,7 +221,7 @@ const Quests = () => {
           <span>•</span>
           <span>{character.experience} / {character.experience_to_next} EXP</span>
           <span>•</span>
-          <span>Classe: {character.class}</span>
+          <span>Classe: {character.class_display_name || character.class_name || character.class || 'Inconnue'}</span>
         </div>
       </motion.div>
 
@@ -244,7 +244,7 @@ const Quests = () => {
           <Clock size={24} />
           <div className="stat-info">
             <div className="stat-value">
-              {quests.filter(q => getQuestStatus(q) === 'in_progress').length}
+              {Array.isArray(quests) ? quests.filter(q => getQuestStatus(q) === 'in_progress').length : 0}
             </div>
             <div className="stat-label">En cours</div>
           </div>
@@ -254,7 +254,7 @@ const Quests = () => {
           <CheckCircle size={24} />
           <div className="stat-info">
             <div className="stat-value">
-              {quests.filter(q => getQuestStatus(q) === 'completed').length}
+              {Array.isArray(quests) ? quests.filter(q => getQuestStatus(q) === 'completed').length : 0}
             </div>
             <div className="stat-label">Terminées</div>
           </div>
@@ -264,7 +264,7 @@ const Quests = () => {
           <Star size={24} />
           <div className="stat-info">
             <div className="stat-value">
-              {quests.filter(q => q.rarity === 'legendary').length}
+              {Array.isArray(quests) ? quests.filter(q => q.rarity === 'legendary').length : 0}
             </div>
             <div className="stat-label">Légendaires</div>
           </div>
@@ -290,7 +290,7 @@ const Quests = () => {
 
       {/* Grille des quêtes */}
       <div className="quests-grid">
-        {quests.map((quest, index) => {
+        {(Array.isArray(quests) ? quests : []).map((quest, index) => {
           const status = getQuestStatus(quest);
           
           return (

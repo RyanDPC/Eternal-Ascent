@@ -31,10 +31,12 @@ const TalentTree = () => {
           
           // Charger les arbres de talents
           const trees = await databaseService.getTalentTrees();
-          setTalentTrees(trees);
+          setTalentTrees(Array.isArray(trees) ? trees : (trees?.trees || []));
           
           // Trouver l'arbre correspondant à la classe du personnage
-          const characterTree = trees.find(tree => tree.class === characterData.class_name);
+          const characterTree = (Array.isArray(trees) ? trees : (trees?.trees || [])).find(
+            tree => (tree.class === characterData.class_name) || (tree.class_name === characterData.class_name)
+          );
           if (characterTree) {
             setSelectedTree(characterTree);
           }
@@ -67,7 +69,7 @@ const TalentTree = () => {
         return;
       }
 
-      await databaseService.learnTalent(user.id, talentId);
+      await databaseService.learnTalent(character?.id || user.id, talentId);
       
       // Mettre à jour l'état local
       setLearnedTalents(prev => [...prev, talentId]);

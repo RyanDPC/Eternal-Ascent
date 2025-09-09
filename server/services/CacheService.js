@@ -210,6 +210,15 @@ class CacheService {
       const dungeons = await dbManager.pool.query('SELECT * FROM dungeons');
       await this.cacheStaticData('dungeons', dungeons.rows, 86400);
 
+      // Charger les difficultes via SID generator
+      try {
+        const difficultyManager = require('../data/sid/difficulties');
+        const diffs = difficultyManager.generateDifficulties();
+        await this.cacheStaticData('difficulties', diffs, 86400);
+      } catch (e) {
+        console.warn('⚠️ difficulties not generated, skipping');
+      }
+
       // Charger les ennemis
       const enemies = await dbManager.pool.query(`
         SELECT e.*, r.name as rarity_name, r.color as rarity_color
