@@ -253,7 +253,7 @@ app.use((req, res, next) => {
 app.use('/api/systems', systemsRoutes);
 
 // Routes des systèmes (quêtes, pvp, events, etc.)
-app.use('/api/systems', systemsRoutes);
+// (déjà monté au dessus)
 
 // =====================================================
 // ROUTES D'AUTHENTIFICATION (BASIQUES)

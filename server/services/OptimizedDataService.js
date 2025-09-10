@@ -137,14 +137,16 @@ class OptimizedDataService {
 
       // === DONJONS ===
       'get_dungeons_by_level': `
-        SELECT d.*, d.difficulty as difficulty_name, '#FF6B6B' as difficulty_color
+        SELECT d.*, diff.name as difficulty_name, diff.color as difficulty_color
         FROM dungeons d
+        JOIN difficulties diff ON d.difficulty_id = diff.id
         WHERE d.level_requirement <= $1
         ORDER BY d.level_requirement, d.id
       `,
       'get_dungeon_by_id': `
-        SELECT d.*, d.difficulty as difficulty_name, '#FF6B6B' as difficulty_color
+        SELECT d.*, diff.name as difficulty_name, diff.color as difficulty_color
         FROM dungeons d
+        JOIN difficulties diff ON d.difficulty_id = diff.id
         WHERE d.id = $1
       `,
       'get_character_dungeons': `
