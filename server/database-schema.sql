@@ -136,16 +136,20 @@ CREATE TABLE users (
 CREATE TABLE IF NOT EXISTS auth_codes (
     id SERIAL PRIMARY KEY,
     email VARCHAR(100) NOT NULL,
-    code VARCHAR(10) NOT NULL,
+    code VARCHAR(100) NOT NULL,
     purpose VARCHAR(20) NOT NULL CHECK (purpose IN ('register','login','verify')),
     expires_at TIMESTAMP NOT NULL,
     consumed_at TIMESTAMP,
     attempts SMALLINT NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    ip VARCHAR(64),
+    user_agent VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_codes(email);
 CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_codes(expires_at);
+-- Permet d'avoir au plus un code actif par email/purpose
+CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_codes_email_purpose_active ON auth_codes (email, purpose) WHERE consumed_at IS NULL;
 
 -- Table des personnages (ultra-optimisée)
 CREATE TABLE characters (

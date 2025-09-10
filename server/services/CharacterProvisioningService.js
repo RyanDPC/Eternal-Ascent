@@ -116,7 +116,10 @@ class CharacterProvisioningService {
 
       // Optional: recalc final stats including equipment
       const equipped = await client.query(
-        `SELECT i.* FROM character_inventory ci JOIN items i ON ci.item_id = i.id WHERE ci.character_id = $1 AND ci.equipped = true`,
+        `SELECT i.*, it.equip_slot FROM character_inventory ci 
+         JOIN items i ON ci.item_id = i.id 
+         JOIN item_types it ON i.type_id = it.id
+         WHERE ci.character_id = $1 AND ci.equipped = true`,
         [character.id]
       );
       const finalStats = CharacterStats.calculateFinalStats(initial, equipped.rows || []);

@@ -10,7 +10,7 @@ async function run() {
     const username = 'tester_' + Math.random().toString(36).slice(2,8);
 
     const r1 = await axios.post(`${base}/api/auth/request-email-code`, { email, username });
-    console.log('request-email-code:', r1.data);
+    console.log('request-email-code:', { success: r1.data.success, mailSent: r1.data.mailSent, purpose: r1.data.purpose });
     const code = r1.data.code; // dev only
     if (!code) {
       console.log('No code returned (prod). Please check your inbox and run verify manually.');
@@ -18,7 +18,7 @@ async function run() {
     }
 
     const r2 = await axios.post(`${base}/api/auth/verify-email`, { email, code, username, characterName: 'Hero_' + username, className: 'warrior' });
-    console.log('verify-email:', r2.data);
+    console.log('verify-email:', { success: r2.data.success, user: r2.data.user, character: r2.data.character });
 
     const token = r2.data.token;
     const characterId = r2.data.character.id;

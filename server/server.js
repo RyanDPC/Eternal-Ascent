@@ -157,12 +157,12 @@ app.get('/api/health', async (req, res) => {
     const dbCheck = await dataService.pool.query('SELECT NOW()');
     const dbTime = Date.now() - startTime;
     
-    // Vérifier le cache (Redis ou fallback mémoire)
-    let cacheStatus = 'disabled';
+    // Vérifier le cache (Redis)
+    let cacheStatus = 'unavailable';
     try {
-      const cacheCheck = await cacheService.getStaticData('health_check');
       await cacheService.cacheStaticData('health_check', 'ok', 10);
-      cacheStatus = cacheCheck ? 'OK' : 'OK';
+      const cacheCheck = await cacheService.getStaticData('health_check');
+      cacheStatus = cacheCheck ? 'OK' : 'unavailable';
     } catch (e) {
       cacheStatus = 'unavailable';
     }
@@ -267,18 +267,40 @@ app.post('/api/auth/request-email-code', async (req, res) => {
     const userRes = await dataService.pool.query('SELECT id, email FROM users WHERE email = $1', [email]);
     const purpose = userRes.rows.length > 0 ? 'login' : 'register';
 
+    // Cooldown par IP+email: 1 requête / 60s, max 5 / 15 min
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+    const recent = await dataService.pool.query(
+      `SELECT COUNT(*)::int as c FROM auth_codes WHERE email = $1 AND ip = $2 AND created_at > NOW() - INTERVAL '60 seconds'`,
+      [email, ip]
+    );
+    if (recent.rows[0].c > 0) {
+      return res.status(429).json({ error: 'Veuillez patienter avant de redemander un code' });
+    }
+    const burst = await dataService.pool.query(
+      `SELECT COUNT(*)::int as c FROM auth_codes WHERE email = $1 AND ip = $2 AND created_at > NOW() - INTERVAL '15 minutes'`,
+      [email, ip]
+    );
+    if (burst.rows[0].c >= 5) {
+      return res.status(429).json({ error: 'Trop de demandes récentes, réessayez plus tard' });
+    }
+
     // Générer un code 6 chiffres
-    const code = (Math.floor(100000 + Math.random() * 900000)).toString();
+    const rawCode = (Math.floor(100000 + Math.random() * 900000)).toString();
+    // Hacher le code
+    const bcrypt = require('bcryptjs');
+    const code = await bcrypt.hash(rawCode, 10);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
+    // Supprimer les codes actifs existants pour cet email/purpose afin d'éviter les conflits
+    await dataService.pool.query(`DELETE FROM auth_codes WHERE email = $1 AND purpose = $2 AND consumed_at IS NULL`, [email, purpose]);
     await dataService.pool.query(
-      `INSERT INTO auth_codes (email, code, purpose, expires_at) VALUES ($1,$2,$3,$4)`,
-      [email, code, purpose, expiresAt]
+      `INSERT INTO auth_codes (email, code, purpose, expires_at, ip, user_agent) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [email, code, purpose, expiresAt, ip, req.headers['user-agent'] || null]
     );
 
     let mailSent = false;
     try {
-      await mailService.sendVerificationCode(email, code);
+      await mailService.sendVerificationCode(email, rawCode);
       mailSent = true;
     } catch (e) {
       console.warn('Mail send failed:', e.message);
@@ -288,7 +310,7 @@ app.post('/api/auth/request-email-code', async (req, res) => {
       success: true,
       purpose,
       email,
-      ...(process.env.NODE_ENV !== 'production' ? { code, mailSent } : { mailSent })
+      ...(process.env.NODE_ENV !== 'production' ? { code: rawCode, mailSent } : { mailSent })
     });
   } catch (e) {
     console.error('❌ request-email-code error:', e);
@@ -304,11 +326,17 @@ app.post('/api/auth/verify-email', async (req, res) => {
 
     // Récupérer code valide
     const codeRes = await dataService.pool.query(
-      `SELECT * FROM auth_codes WHERE email = $1 AND code = $2 AND consumed_at IS NULL AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1`,
-      [email, code]
+      `SELECT * FROM auth_codes WHERE email = $1 AND consumed_at IS NULL AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1`,
+      [email]
     );
     if (codeRes.rows.length === 0) return res.status(401).json({ error: 'Code invalide ou expiré' });
+    const bcrypt = require('bcryptjs');
     const authCode = codeRes.rows[0];
+    const ok = await bcrypt.compare(String(code), authCode.code);
+    if (!ok) {
+      await dataService.pool.query('UPDATE auth_codes SET attempts = attempts + 1 WHERE id = $1', [authCode.id]);
+      return res.status(401).json({ error: 'Code invalide' });
+    }
 
     // Marquer comme consommé
     await dataService.pool.query('UPDATE auth_codes SET consumed_at = NOW() WHERE id = $1', [authCode.id]);
@@ -357,6 +385,16 @@ app.post('/api/auth/verify-email', async (req, res) => {
   } catch (e) {
     console.error('❌ verify-email error:', e);
     return res.status(500).json({ error: 'Erreur lors de la vérification' });
+  }
+});
+
+// Renvoyer un code (respecte les mêmes cooldowns)
+app.post('/api/auth/resend-email-code', async (req, res) => {
+  try {
+    req.url = '/api/auth/request-email-code';
+    return app.handle(req, res);
+  } catch (e) {
+    return res.status(500).json({ error: 'Erreur lors du renvoi du code' });
   }
 });
 

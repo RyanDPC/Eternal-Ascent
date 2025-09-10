@@ -276,9 +276,11 @@ class StartingInventoryManager {
       // Récupérer les IDs des équipements
       const placeholders = equipmentNames.map((_, index) => `$${index + 1}`).join(',');
       const result = await client.query(`
-        SELECT id, name, display_name FROM items 
-        WHERE display_name IN (${placeholders}) OR name IN (${placeholders})
-        ORDER BY name
+        SELECT i.id, i.name, i.display_name, it.equip_slot 
+        FROM items i
+        JOIN item_types it ON i.type_id = it.id
+        WHERE i.display_name IN (${placeholders}) OR i.name IN (${placeholders})
+        ORDER BY i.name
       `, [...equipmentNames, ...equipmentNames]);
       
       const equipmentIds = result.rows.map(row => ({
@@ -286,7 +288,7 @@ class StartingInventoryManager {
         name: row.name,
         quantity: 1,
         equipped: true,
-        slot: this.getEquipmentSlotFromName(row.name)
+        slot: row.equip_slot || null
       }));
       
       console.log('🔍 IDs des équipements de départ trouvés:', equipmentIds);

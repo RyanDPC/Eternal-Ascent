@@ -127,7 +127,7 @@ class Seeder {
       { name: 'dagger', display_name: 'Dague', category: 'weapon', equip_slot: 'weapon', max_stack: 1 },
       { name: 'sword', display_name: 'Épée', category: 'weapon', equip_slot: 'weapon', max_stack: 1 },
       { name: 'bow', display_name: 'Arc', category: 'weapon', equip_slot: 'weapon', max_stack: 1 },
-      { name: 'shield', display_name: 'Bouclier', category: 'armor', equip_slot: 'weapon', max_stack: 1 },
+      { name: 'shield', display_name: 'Bouclier', category: 'armor', equip_slot: 'shield', max_stack: 1 },
       { name: 'armor', display_name: 'Armure', category: 'armor', equip_slot: 'chest', max_stack: 1 },
       { name: 'helmet', display_name: 'Casque', category: 'armor', equip_slot: 'head', max_stack: 1 },
       { name: 'gloves', display_name: 'Gants', category: 'armor', equip_slot: 'gloves', max_stack: 1 },

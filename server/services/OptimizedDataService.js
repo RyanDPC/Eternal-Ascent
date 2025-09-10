@@ -375,41 +375,8 @@ class OptimizedDataService {
       const result = await this.pool.query('SELECT calculate_character_stats($1) as stats', [character.id]);
       return result.rows[0].stats;
     } catch (error) {
-      console.warn('Erreur calcul stats SQL, fallback manuel:', error.message);
-      
-      // Fallback manuel
-      const baseStats = character.class_base_stats || {};
-      const characterStats = {
-        health: character.health,
-        max_health: character.max_health,
-        mana: character.mana,
-        max_mana: character.max_mana,
-        attack: character.attack,
-        defense: character.defense,
-        magic_attack: character.magic_attack,
-        magic_defense: character.magic_defense,
-        critical_rate: character.critical_rate,
-        critical_damage: character.critical_damage
-      };
-
-      // Appliquer les bonus d'équipement
-      if (character.inventory) {
-        for (const item of character.inventory) {
-          if (item.equipped && item.item_base_stats) {
-            const itemStats = typeof item.item_base_stats === 'string' 
-              ? JSON.parse(item.item_base_stats) 
-              : item.item_base_stats;
-
-            for (const [stat, value] of Object.entries(itemStats)) {
-              if (characterStats[stat] !== undefined) {
-                characterStats[stat] += parseInt(value) || 0;
-              }
-            }
-          }
-        }
-      }
-
-      return characterStats;
+      console.error('❌ SQL stats calculation failed:', error);
+      throw error;
     }
   }
 
@@ -729,16 +696,19 @@ class OptimizedDataService {
       CREATE TABLE IF NOT EXISTS auth_codes (
         id SERIAL PRIMARY KEY,
         email VARCHAR(100) NOT NULL,
-        code VARCHAR(10) NOT NULL,
+        code VARCHAR(100) NOT NULL,
         purpose VARCHAR(20) NOT NULL CHECK (purpose IN ('register','login','verify')),
         expires_at TIMESTAMP NOT NULL,
         consumed_at TIMESTAMP,
         attempts SMALLINT NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+        ip VARCHAR(64),
+        user_agent VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_codes(email)`);
     await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_codes(expires_at)`);
+    await this.pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_codes_email_purpose_active ON auth_codes (email, purpose) WHERE consumed_at IS NULL`);
   }
 
   /**
