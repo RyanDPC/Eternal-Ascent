@@ -22,6 +22,14 @@ const Dungeons = lazy(() => import('./components/dungeons/Dungeons'));
 const GamePage = lazy(() => import('./components/game/GamePage'));
 const GuildSystem = lazy(() => import('./components/guilds/Guilds'));
 const AdvancedHub = lazy(() => import('./components/advanced/AdvancedHub.jsx'));
+const WorldEventsPage = lazy(() => import('./components/advanced/WorldEventsPage.jsx'));
+const ShopsPage = lazy(() => import('./components/advanced/ShopsPage.jsx'));
+const AuctionsPage = lazy(() => import('./components/advanced/AuctionsPage.jsx'));
+const SeasonsPage = lazy(() => import('./components/advanced/SeasonsPage.jsx'));
+const LeaderboardsPage = lazy(() => import('./components/advanced/LeaderboardsPage.jsx'));
+const FriendsPage = lazy(() => import('./components/advanced/FriendsPage.jsx'));
+const MessagesPage = lazy(() => import('./components/advanced/MessagesPage.jsx'));
+const CosmeticsPage = lazy(() => import('./components/advanced/CosmeticsPage.jsx'));
 
 function App() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -164,6 +172,14 @@ function App() {
                         <AdvancedHub />
                       </ProtectedRoute>
                     } />
+                    <Route path="/world-events" element={<ProtectedRoute><WorldEventsPage /></ProtectedRoute>} />
+                    <Route path="/shops" element={<ProtectedRoute><ShopsPage /></ProtectedRoute>} />
+                    <Route path="/auctions" element={<ProtectedRoute><AuctionsPage /></ProtectedRoute>} />
+                    <Route path="/seasons" element={<ProtectedRoute><SeasonsPage /></ProtectedRoute>} />
+                    <Route path="/leaderboards" element={<ProtectedRoute><LeaderboardsPage /></ProtectedRoute>} />
+                    <Route path="/friends" element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
+                    <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
+                    <Route path="/cosmetics" element={<ProtectedRoute><CosmeticsPage /></ProtectedRoute>} />
                   </Routes>
                 </Suspense>
               </main>

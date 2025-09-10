@@ -446,6 +446,76 @@ class DatabaseService {
     }
   }
 
+  // =====================================================
+  // MÉTHODES AVANCÉES (Monde, Économie, Social, Saisons, Cosmétiques)
+  // =====================================================
+
+  async getWorldEvents() {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${this.baseURL}/world-events`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Erreur événements monde');
+    return res.json();
+  }
+
+  async getShops() {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${this.baseURL}/shops`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Erreur shops');
+    return res.json();
+  }
+
+  async getAuctions() {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${this.baseURL}/auctions`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Erreur auctions');
+    return res.json();
+  }
+
+  async getSeasons() {
+    const res = await fetch(`${this.baseURL}/seasons`);
+    if (!res.ok) throw new Error('Erreur seasons');
+    return res.json();
+  }
+
+  async getSeasonProgression() {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${this.baseURL}/seasons/progression`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Erreur season progression');
+    return res.json();
+  }
+
+  async getLeaderboards() {
+    const res = await fetch(`${this.baseURL}/leaderboards`);
+    if (!res.ok) throw new Error('Erreur leaderboards');
+    return res.json();
+  }
+
+  async getFriends() {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${this.baseURL}/friends`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Erreur friends');
+    return res.json();
+  }
+
+  async getMessages() {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${this.baseURL}/messages`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error('Erreur messages');
+    return res.json();
+  }
+
+  async getCosmetics() {
+    const res = await fetch(`${this.baseURL}/cosmetics`);
+    if (!res.ok) throw new Error('Erreur cosmetics');
+    return res.json();
+  }
+
+  async getShopRotation() {
+    const res = await fetch(`${this.baseURL}/shop-rotation`);
+    if (!res.ok) throw new Error('Erreur shop rotation');
+    return res.json();
+  }
+
   // Récupérer un donjon spécifique avec ses ennemis
   async getDungeonById(dungeonId) {
     try {
