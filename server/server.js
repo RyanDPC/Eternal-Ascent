@@ -6,6 +6,9 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
+const requestContext = require('./middleware/requestContext');
+const logger = require('./services/Logger');
+const { validate, z } = require('./middleware/validation');
 
 // Services optimisés
 const OptimizedDataService = require('./services/OptimizedDataService');
@@ -66,6 +69,7 @@ app.use(helmet({
 app.use(compression());
 
 // Logging optimisé
+app.use(requestContext);
 app.use(morgan('combined'));
 
 // Rate limiting adaptatif
@@ -259,7 +263,10 @@ app.use('/api/systems', systemsRoutes);
 // ROUTES D'AUTHENTIFICATION (BASIQUES)
 // =====================================================
 // Demander un code de connexion par email
-app.post('/api/auth/request-email-code', async (req, res) => {
+app.post('/api/auth/request-email-code', validate({ body: z.object({
+  email: z.string().email(),
+  username: z.string().min(3).max(30).optional()
+}) }), async (req, res) => {
   try {
     const { email, username } = req.body || {};
     if (!email) return res.status(400).json({ error: 'Email requis' });
@@ -319,7 +326,13 @@ app.post('/api/auth/request-email-code', async (req, res) => {
 });
 
 // Vérifier le code et connecter / créer l'utilisateur + personnage
-app.post('/api/auth/verify-email', async (req, res) => {
+app.post('/api/auth/verify-email', validate({ body: z.object({
+  email: z.string().email(),
+  code: z.string().min(4).max(10),
+  username: z.string().min(3).max(30).optional(),
+  characterName: z.string().min(3).max(50).optional(),
+  className: z.string().min(3).max(30).optional()
+}) }), async (req, res) => {
   try {
     const { email, code, username, characterName, className } = req.body || {};
     if (!email || !code) return res.status(400).json({ error: 'Email et code requis' });

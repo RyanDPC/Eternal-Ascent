@@ -42,7 +42,11 @@
     "nodemailer": "^6.9.13",
     "morgan": "^1.10.1",
     "pg": "^8.11.3",
-    "redis": "^4.6.10"
+    "redis": "^4.6.10",
+    "pino": "^9.3.2",
+    "pino-http": "^9.0.0",
+    "uuid": "^9.0.1",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
