@@ -6,6 +6,9 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
+const requestContext = require('./middleware/requestContext');
+const logger = require('./services/Logger');
+const { validate, z } = require('./middleware/validation');
 
 // Services optimisés
 const OptimizedDataService = require('./services/OptimizedDataService');
@@ -13,6 +16,8 @@ const CacheService = require('./services/CacheService');
 const QuestSystem = require('./systems/quests');
 const WebSocketManager = require('./websocket/WebSocketManager');
 const RotationService = require('./services/RotationService');
+const MailService = require('./services/MailService');
+const CharacterProvisioningService = require('./services/CharacterProvisioningService');
 
 // Routes optimisées
 const optimizedCharacterRoutes = require('./routes/optimized-characters');
@@ -21,10 +26,14 @@ const staticRoutes = require('./routes/static');
 const systemsRoutes = require('./routes/systems');
 const talentsRoutes = require('./routes/talents');
 const combatRoutes = require('./routes/combat');
+const docsRoutes = require('./routes/docs');
+const adminRoutes = require('./routes/admin');
 const authenticateToken = require('./middleware/auth');
 
+const config = require('./config');
+const TokenService = require('./services/TokenService');
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = config.port;
 
 // Initialisation des services
 let dataService;
@@ -32,6 +41,9 @@ let cacheService;
 let systems;
 let wsManager;
 let rotationService;
+let mailService;
+let characterProvisioning;
+let tokenService;
 
 // =====================================================
 // MIDDLEWARE DE SÉCURITÉ ET PERFORMANCE
@@ -39,14 +51,19 @@ let rotationService;
 
 // Helmet pour la sécurité
 app.use(helmet({
-  contentSecurityPolicy: {
+  contentSecurityPolicy: config.env === 'production' ? {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "'strict-dynamic'"],
+      styleSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: []
     },
-  },
+  } : false,
   crossOriginEmbedderPolicy: false,
   xFrameOptions: { action: 'deny' },
   xssFilter: true,
@@ -55,13 +72,22 @@ app.use(helmet({
     includeSubDomains: true,
     preload: true
   },
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  permissionsPolicy: {
+    features: {
+      geolocation: ["'none'"],
+      camera: ["'none'"],
+      microphone: ["'none'"],
+      usb: ["'none'"],
+    }
+  }
 }));
 
 // Compression
 app.use(compression());
 
 // Logging optimisé
+app.use(requestContext);
 app.use(morgan('combined'));
 
 // Rate limiting adaptatif
@@ -87,9 +113,7 @@ app.use('/api/items/search', createRateLimit(5 * 60 * 1000, 50, 'Trop de recherc
 
 // CORS optimisé
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] 
-    : ['http://localhost:3000', 'http://localhost:3001'],
+  origin: config.cors.origins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -153,12 +177,12 @@ app.get('/api/health', async (req, res) => {
     const dbCheck = await dataService.pool.query('SELECT NOW()');
     const dbTime = Date.now() - startTime;
     
-    // Vérifier le cache (Redis ou fallback mémoire)
-    let cacheStatus = 'disabled';
+    // Vérifier le cache (Redis)
+    let cacheStatus = 'unavailable';
     try {
-      const cacheCheck = await cacheService.getStaticData('health_check');
       await cacheService.cacheStaticData('health_check', 'ok', 10);
-      cacheStatus = cacheCheck ? 'OK' : 'OK';
+      const cacheCheck = await cacheService.getStaticData('health_check');
+      cacheStatus = cacheCheck ? 'OK' : 'unavailable';
     } catch (e) {
       cacheStatus = 'unavailable';
     }
@@ -240,6 +264,8 @@ app.use('/api/items', optimizedItemRoutes);
 app.use('/api/static', staticRoutes);
 app.use('/api/talents', talentsRoutes);
 app.use('/api', combatRoutes);
+app.use('/api', docsRoutes);
+app.use('/api', adminRoutes);
 
 // Injecter et monter les systèmes avancés
 app.use((req, res, next) => {
@@ -249,11 +275,168 @@ app.use((req, res, next) => {
 app.use('/api/systems', systemsRoutes);
 
 // Routes des systèmes (quêtes, pvp, events, etc.)
-app.use('/api/systems', systemsRoutes);
+// (déjà monté au dessus)
 
 // =====================================================
 // ROUTES D'AUTHENTIFICATION (BASIQUES)
 // =====================================================
+// Demander un code de connexion par email
+app.post('/api/auth/request-email-code', validate({ body: z.object({
+  email: z.string().email(),
+  username: z.string().min(3).max(30).optional()
+}) }), async (req, res) => {
+  try {
+    const { email, username } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Email requis' });
+
+    const userRes = await dataService.pool.query('SELECT id, email FROM users WHERE email = $1', [email]);
+    const purpose = userRes.rows.length > 0 ? 'login' : 'register';
+
+    // Cooldown par IP+email: 1 requête / 60s, max 5 / 15 min
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+    const recent = await dataService.pool.query(
+      `SELECT COUNT(*)::int as c FROM auth_codes WHERE email = $1 AND ip = $2 AND created_at > NOW() - INTERVAL '60 seconds'`,
+      [email, ip]
+    );
+    if (recent.rows[0].c > 0) {
+      return res.status(429).json({ error: 'Veuillez patienter avant de redemander un code' });
+    }
+    const burst = await dataService.pool.query(
+      `SELECT COUNT(*)::int as c FROM auth_codes WHERE email = $1 AND ip = $2 AND created_at > NOW() - INTERVAL '15 minutes'`,
+      [email, ip]
+    );
+    if (burst.rows[0].c >= 5) {
+      return res.status(429).json({ error: 'Trop de demandes récentes, réessayez plus tard' });
+    }
+
+    // Générer un code 6 chiffres
+    const rawCode = (Math.floor(100000 + Math.random() * 900000)).toString();
+    // Hacher le code
+    const bcrypt = require('bcryptjs');
+    const code = await bcrypt.hash(rawCode, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+    // Supprimer les codes actifs existants pour cet email/purpose afin d'éviter les conflits
+    await dataService.pool.query(`DELETE FROM auth_codes WHERE email = $1 AND purpose = $2 AND consumed_at IS NULL`, [email, purpose]);
+    await dataService.pool.query(
+      `INSERT INTO auth_codes (email, code, purpose, expires_at, ip, user_agent) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [email, code, purpose, expiresAt, ip, req.headers['user-agent'] || null]
+    );
+
+    let mailSent = false;
+    try {
+      await mailService.sendVerificationCode(email, rawCode);
+      mailSent = true;
+    } catch (e) {
+      console.warn('Mail send failed:', e.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      purpose,
+      email,
+      ...(process.env.NODE_ENV !== 'production' ? { code: rawCode, mailSent } : { mailSent })
+    });
+  } catch (e) {
+    console.error('❌ request-email-code error:', e);
+    return res.status(500).json({ error: 'Erreur lors de la demande de code' });
+  }
+});
+
+// Vérifier le code et connecter / créer l'utilisateur + personnage
+app.post('/api/auth/verify-email', validate({ body: z.object({
+  email: z.string().email(),
+  code: z.string().min(4).max(10),
+  username: z.string().min(3).max(30).optional(),
+  characterName: z.string().min(3).max(50).optional(),
+  className: z.string().min(3).max(30).optional()
+}) }), async (req, res) => {
+  try {
+    const { email, code, username, characterName, className } = req.body || {};
+    if (!email || !code) return res.status(400).json({ error: 'Email et code requis' });
+
+    // Récupérer code valide
+    const codeRes = await dataService.pool.query(
+      `SELECT * FROM auth_codes WHERE email = $1 AND consumed_at IS NULL AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1`,
+      [email]
+    );
+    if (codeRes.rows.length === 0) return res.status(401).json({ error: 'Code invalide ou expiré' });
+    const bcrypt = require('bcryptjs');
+    const authCode = codeRes.rows[0];
+    const ok = await bcrypt.compare(String(code), authCode.code);
+    if (!ok) {
+      await dataService.pool.query('UPDATE auth_codes SET attempts = attempts + 1 WHERE id = $1', [authCode.id]);
+      return res.status(401).json({ error: 'Code invalide' });
+    }
+
+    // Marquer comme consommé
+    await dataService.pool.query('UPDATE auth_codes SET consumed_at = NOW() WHERE id = $1', [authCode.id]);
+
+    // Trouver ou créer utilisateur
+    let user;
+    const u = await dataService.pool.query('SELECT id, username, email, is_email_verified FROM users WHERE email = $1', [email]);
+    if (u.rows.length === 0) {
+      const bcrypt = require('bcryptjs');
+      const randomPass = await bcrypt.hash('email-code-' + Date.now() + '-' + Math.random(), 10);
+      const uname = username && username.length >= 3 ? username : `user_${Math.random().toString(36).slice(2, 8)}`;
+      const created = await dataService.pool.query(
+        `INSERT INTO users (username, email, password_hash, is_email_verified, email_verified_at)
+         VALUES ($1,$2,$3,true,NOW()) RETURNING id, username, email`,
+        [uname, email, randomPass]
+      );
+      user = created.rows[0];
+    } else {
+      user = u.rows[0];
+      if (!user.is_email_verified) {
+        await dataService.pool.query('UPDATE users SET is_email_verified = true, email_verified_at = NOW() WHERE id = $1', [user.id]);
+      }
+    }
+
+    // Provisionner le personnage s'il n'existe pas
+    const charRes = await dataService.pool.query('SELECT id, name, level FROM characters WHERE user_id = $1', [user.id]);
+    let character = charRes.rows[0];
+    if (!character) {
+      character = await characterProvisioning.provisionCharacterForUser(user.id, { characterName, className });
+    }
+
+    // Émettre tokens (access + refresh)
+    const tokens = await tokenService.issueTokens({ userId: user.id, username: user.username });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Connexion réussie',
+      token: tokens.access,
+      refresh_token: tokens.refresh,
+      user: { id: user.id, username: user.username, email },
+      character
+    });
+  } catch (e) {
+    console.error('❌ verify-email error:', e);
+    return res.status(500).json({ error: 'Erreur lors de la vérification' });
+  }
+});
+
+// Renvoyer un code (respecte les mêmes cooldowns)
+app.post('/api/auth/resend-email-code', async (req, res) => {
+  try {
+    req.url = '/api/auth/request-email-code';
+    return app.handle(req, res);
+  } catch (e) {
+    return res.status(500).json({ error: 'Erreur lors du renvoi du code' });
+  }
+});
+
+// Refresh token rotation
+app.post('/api/auth/refresh', validate({ body: z.object({ refresh_token: z.string().min(10) }) }), async (req, res) => {
+  try {
+    const { refresh_token } = req.body;
+    const payload = await tokenService.verifyRefresh(refresh_token);
+    const tokens = await tokenService.rotateRefreshToken(payload.sub, refresh_token);
+    return res.json({ success: true, token: tokens.access, refresh_token: tokens.refresh });
+  } catch (e) {
+    return res.status(401).json({ error: 'Refresh invalide' });
+  }
+});
 
 // Inscription (version simplifiée pour la démo)
 app.post('/api/auth/register', async (req, res) => {
@@ -616,11 +799,18 @@ async function startServer() {
     systems.set('quests', new QuestSystem(dataService.pool));
     rotationService = new RotationService(dataService, cacheService, systems.get('quests'));
     systems.set('rotations', rotationService);
+    tokenService = new TokenService(dataService.pool);
+    
+    // Mail & Provisioning services
+    mailService = new MailService();
+    characterProvisioning = new CharacterProvisioningService(dataService.pool);
     
     // Injecter les services dans le middleware après initialisation
     app.use((req, res, next) => {
       req.dataService = dataService;
       req.cacheService = cacheService;
+      req.mailService = mailService;
+      req.tokenService = tokenService;
       next();
     });
     

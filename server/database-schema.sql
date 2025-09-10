@@ -34,7 +34,7 @@ CREATE TABLE rarities (
     display_name VARCHAR(50) NOT NULL,
     color VARCHAR(7) NOT NULL,
     probability DECIMAL(8,7) NOT NULL CHECK (probability > 0 AND probability <= 1),
-    stat_multiplier DECIMAL(4,2) NOT NULL DEFAULT 1.00 CHECK (stat_multiplier > 0),
+    stat_multiplier DECIMAL(5,2) NOT NULL DEFAULT 1.00 CHECK (stat_multiplier > 0),
     description TEXT,
     icon VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -79,9 +79,9 @@ CREATE TABLE difficulties (
     color VARCHAR(7) NOT NULL,
     icon VARCHAR(10) NOT NULL,
     description TEXT,
-    stat_multiplier DECIMAL(4,2) NOT NULL DEFAULT 1.00 CHECK (stat_multiplier > 0),
-    exp_multiplier DECIMAL(4,2) NOT NULL DEFAULT 1.00 CHECK (exp_multiplier > 0),
-    gold_multiplier DECIMAL(4,2) NOT NULL DEFAULT 1.00 CHECK (gold_multiplier > 0),
+    stat_multiplier DECIMAL(5,2) NOT NULL DEFAULT 1.00 CHECK (stat_multiplier > 0),
+    exp_multiplier DECIMAL(5,2) NOT NULL DEFAULT 1.00 CHECK (exp_multiplier > 0),
+    gold_multiplier DECIMAL(5,2) NOT NULL DEFAULT 1.00 CHECK (gold_multiplier > 0),
     order_index SMALLINT NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -94,7 +94,7 @@ CREATE TABLE difficulties (
 -- Table des objets (ultra-optimisée)
 CREATE TABLE items (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(80) NOT NULL,
+    name VARCHAR(80) NOT NULL UNIQUE,
     display_name VARCHAR(100) NOT NULL,
     description TEXT,
     type_id SMALLINT NOT NULL REFERENCES item_types(id),
@@ -124,11 +124,32 @@ CREATE TABLE users (
     username VARCHAR(30) NOT NULL UNIQUE CHECK (length(username) >= 3 AND length(username) <= 30),
     email VARCHAR(100) NOT NULL UNIQUE CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
     password_hash VARCHAR(255) NOT NULL,
+    is_email_verified BOOLEAN NOT NULL DEFAULT false,
+    email_verified_at TIMESTAMP,
     last_login TIMESTAMP,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Table des codes d'authentification par email (passwordless / vérification)
+CREATE TABLE IF NOT EXISTS auth_codes (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(100) NOT NULL,
+    code VARCHAR(100) NOT NULL,
+    purpose VARCHAR(20) NOT NULL CHECK (purpose IN ('register','login','verify')),
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP,
+    attempts SMALLINT NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    ip VARCHAR(64),
+    user_agent VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_codes(email);
+CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_codes(expires_at);
+-- Permet d'avoir au plus un code actif par email/purpose
+CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_codes_email_purpose_active ON auth_codes (email, purpose) WHERE consumed_at IS NULL;
 
 -- Table des personnages (ultra-optimisée)
 CREATE TABLE characters (
@@ -153,8 +174,8 @@ CREATE TABLE characters (
     defense INTEGER NOT NULL CHECK (defense > 0),
     magic_attack INTEGER NOT NULL CHECK (magic_attack > 0),
     magic_defense INTEGER NOT NULL CHECK (magic_defense > 0),
-    critical_rate DECIMAL(4,2) NOT NULL DEFAULT 5.00 CHECK (critical_rate >= 0 AND critical_rate <= 100),
-    critical_damage DECIMAL(4,2) NOT NULL DEFAULT 150.00 CHECK (critical_damage >= 100),
+    critical_rate DECIMAL(5,2) NOT NULL DEFAULT 5.00 CHECK (critical_rate >= 0 AND critical_rate <= 100),
+    critical_damage DECIMAL(5,2) NOT NULL DEFAULT 150.00 CHECK (critical_damage >= 100),
     
     -- Stats secondaires (optimisées)
     vitality SMALLINT NOT NULL DEFAULT 10 CHECK (vitality > 0 AND vitality <= 1000),
@@ -173,9 +194,9 @@ CREATE TABLE characters (
     mana_regen DECIMAL(5,2) NOT NULL DEFAULT 0.50 CHECK (mana_regen >= 0),
     attack_speed DECIMAL(5,2) NOT NULL DEFAULT 100.00 CHECK (attack_speed > 0),
     movement_speed DECIMAL(5,2) NOT NULL DEFAULT 100.00 CHECK (movement_speed > 0),
-    dodge_chance DECIMAL(4,2) NOT NULL DEFAULT 8.00 CHECK (dodge_chance >= 0 AND dodge_chance <= 100),
-    block_chance DECIMAL(4,2) NOT NULL DEFAULT 5.00 CHECK (block_chance >= 0 AND block_chance <= 100),
-    parry_chance DECIMAL(4,2) NOT NULL DEFAULT 3.00 CHECK (parry_chance >= 0 AND parry_chance <= 100),
+    dodge_chance DECIMAL(5,2) NOT NULL DEFAULT 8.00 CHECK (dodge_chance >= 0 AND dodge_chance <= 100),
+    block_chance DECIMAL(5,2) NOT NULL DEFAULT 5.00 CHECK (block_chance >= 0 AND block_chance <= 100),
+    parry_chance DECIMAL(5,2) NOT NULL DEFAULT 3.00 CHECK (parry_chance >= 0 AND parry_chance <= 100),
     spell_power DECIMAL(5,2) NOT NULL DEFAULT 100.00 CHECK (spell_power > 0),
     physical_power DECIMAL(5,2) NOT NULL DEFAULT 100.00 CHECK (physical_power > 0),
     
@@ -467,70 +488,7 @@ CREATE TRIGGER update_guild_members_updated_at BEFORE UPDATE ON guild_members FO
 -- =====================================================
 -- VUES OPTIMISÉES POUR LES REQUÊTES FRÉQUENTES
 -- =====================================================
-
--- Vue pour les personnages complets
-CREATE OR REPLACE VIEW characters_full AS
-SELECT 
-    c.id, c.user_id, c.name, c.level, c.experience, c.experience_to_next,
-    c.health, c.max_health, c.mana, c.max_mana, c.attack, c.defense,
-    c.magic_attack, c.magic_defense, c.critical_rate, c.critical_damage,
-    c.vitality, c.strength, c.intelligence, c.agility, c.resistance,
-    c.precision, c.endurance, c.wisdom, c.constitution, c.dexterity,
-    c.health_regen, c.mana_regen, c.attack_speed, c.movement_speed,
-    c.dodge_chance, c.block_chance, c.parry_chance, c.spell_power, c.physical_power,
-    c.stats, c.created_at, c.updated_at,
-    -- Informations de classe
-    cc.name as class_name, cc.display_name as class_display_name,
-    cc.description as class_description, cc.base_stats as class_base_stats,
-    cc.stat_ranges as class_stat_ranges, cc.starting_equipment as class_starting_equipment,
-    cc.icon as class_icon,
-    r.name as class_rarity_name, r.color as class_rarity_color,
-    -- Informations utilisateur
-    u.username, u.email, u.last_login
-FROM characters c
-JOIN character_classes cc ON c.class_id = cc.id
-JOIN rarities r ON cc.rarity_id = r.id
-JOIN users u ON c.user_id = u.id;
-
--- Vue pour l'inventaire complet
-CREATE OR REPLACE VIEW character_inventory_full AS
-SELECT 
-    ci.id, ci.character_id, ci.item_id, ci.quantity, ci.equipped, ci.equipped_slot,
-    ci.created_at, ci.updated_at,
-    -- Informations de l'objet
-    i.name as item_name, i.display_name as item_display_name, i.description as item_description,
-    i.level_requirement, i.base_stats as item_base_stats, i.stat_ranges as item_stat_ranges,
-    i.effects as item_effects, i.icon as item_icon, i.image as item_image,
-    -- Informations du type
-    it.name as item_type, it.display_name as item_type_display_name, it.category as item_category,
-    it.equip_slot as item_equip_slot, it.max_stack as item_max_stack,
-    -- Informations de rareté
-    r.name as rarity_name, r.display_name as rarity_display_name, r.color as rarity_color,
-    r.probability as rarity_probability, r.stat_multiplier as rarity_stat_multiplier
-FROM character_inventory ci
-JOIN items i ON ci.item_id = i.id
-JOIN item_types it ON i.type_id = it.id
-JOIN rarities r ON i.rarity_id = r.id;
-
--- Vue pour les items avec statistiques
-CREATE OR REPLACE VIEW items_with_stats AS
-SELECT 
-    i.id, i.name, i.display_name, i.description, i.level_requirement,
-    i.base_stats, i.stat_ranges, i.effects, i.icon, i.image,
-    i.created_at, i.updated_at,
-    -- Informations du type
-    it.name as type_name, it.display_name as type_display_name, it.category as type_category,
-    it.equip_slot as type_equip_slot, it.max_stack as type_max_stack,
-    -- Informations de rareté
-    r.name as rarity_name, r.display_name as rarity_display_name, r.color as rarity_color,
-    r.probability as rarity_probability, r.stat_multiplier as rarity_stat_multiplier,
-    -- Statistiques d'utilisation
-    (SELECT COUNT(*) FROM character_inventory WHERE item_id = i.id) as total_owned,
-    (SELECT COUNT(*) FROM character_inventory WHERE item_id = i.id AND equipped = true) as total_equipped,
-    (SELECT SUM(quantity) FROM character_inventory WHERE item_id = i.id) as total_quantity
-FROM items i
-JOIN item_types it ON i.type_id = it.id
-JOIN rarities r ON i.rarity_id = r.id;
+-- (Déplacé vers server/database-views.sql)
 
 -- =====================================================
 -- FONCTIONS UTILITAIRES

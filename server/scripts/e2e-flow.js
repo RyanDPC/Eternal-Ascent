@@ -1,36 +1,32 @@
 #!/usr/bin/env node
 
-// E2E: register → quests → start quest → save combat log
+// E2E: email code login/register → profile → basic actions
 const axios = require('axios');
 
 async function run() {
   try {
-    const base = 'http://localhost:3001/api';
-    const username = `user_${Date.now()}`;
-    const email = `${username}@example.com`;
-    const password = 'password123';
+    const base = process.env.API_URL || 'http://localhost:3001';
+    const email = process.env.TEST_EMAIL || `test_${Date.now()}@example.com`;
+    const username = 'tester_' + Math.random().toString(36).slice(2,8);
 
-    const reg = await axios.post(`${base}/auth/register`, { username, email, password });
-    const token = reg.data.token;
-    const characterId = reg.data.character.id;
-
-    const headers = { Authorization: `Bearer ${token}` };
-
-    const quests = await axios.get(`${base}/systems/quests/available/character/${characterId}`, { headers });
-    const first = (quests.data.data?.daily || [])[0] || (quests.data.data?.weekly || [])[0];
-    if (first) {
-      await axios.post(`${base}/systems/quests/start`, { characterId, questId: first.id }, { headers });
+    const r1 = await axios.post(`${base}/api/auth/request-email-code`, { email, username });
+    console.log('request-email-code:', { success: r1.data.success, mailSent: r1.data.mailSent, purpose: r1.data.purpose });
+    const code = r1.data.code; // dev only
+    if (!code) {
+      console.log('No code returned (prod). Please check your inbox and run verify manually.');
+      return;
     }
 
-    // Save a tiny combat log (gzip on server)
-    await axios.post(`${base}/combat-sessions`, {
-      characterId,
-      dungeonId: 1,
-      result: 'win',
-      log: { events: [{ t: 0, type: 'attack', dmg: 10 }], summary: 'ok' }
-    }, { headers });
+    const r2 = await axios.post(`${base}/api/auth/verify-email`, { email, code, username, characterName: 'Hero_' + username, className: 'warrior' });
+    console.log('verify-email:', { success: r2.data.success, user: r2.data.user, character: r2.data.character });
 
-    console.log('✅ E2E flow completed');
+    const token = r2.data.token;
+    const characterId = r2.data.character.id;
+    const headers = { Authorization: `Bearer ${token}` };
+
+    // sanity call
+    await axios.get(`${base}/api/user/profile`, { headers });
+    console.log('✅ E2E email-code flow completed');
   } catch (e) {
     console.error('❌ E2E flow failed:', e.response?.data || e.message);
     process.exit(1);

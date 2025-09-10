@@ -1,73 +1,19 @@
-// Middleware de validation pour les paramètres de requête
+const { z } = require('zod');
 
-/**
- * Valide les paramètres de requête
- * Peut être utilisé comme middleware simple ou avec des paramètres spécifiques
- */
-const validateParams = (requiredParams = null) => {
+function validate(schema) {
   return (req, res, next) => {
-    // Si des paramètres spécifiques sont requis, les valider
-    if (requiredParams && Array.isArray(requiredParams)) {
-      for (const param of requiredParams) {
-        const value = req.params[param] || req.body[param];
-        if (!value) {
-          return res.status(400).json({ 
-            error: `Paramètre manquant: ${param}`,
-            details: `Le paramètre ${param} est requis`
-          });
-        }
-        
-        // Valider que c'est un ID numérique si c'est un ID
-        if (param.includes('Id') || param.includes('id')) {
-          if (isNaN(parseInt(value)) || parseInt(value) <= 0) {
-            return res.status(400).json({ 
-              error: `${param} invalide`,
-              details: `${param} doit être un nombre entier positif`
-            });
-          }
-        }
-      }
-    } else {
-      // Validation basique des paramètres communs
-      const { id, characterId, questId, itemId } = req.params;
-      
-      // Valider l'ID de personnage
-      if (characterId && (isNaN(parseInt(characterId)) || parseInt(characterId) <= 0)) {
-        return res.status(400).json({ 
-          error: 'ID de personnage invalide',
-          details: 'L\'ID du personnage doit être un nombre entier positif'
-        });
-      }
-      
-      // Valider l'ID de quête
-      if (questId && (isNaN(parseInt(questId)) || parseInt(questId) <= 0)) {
-        return res.status(400).json({ 
-          error: 'ID de quête invalide',
-          details: 'L\'ID de la quête doit être un nombre entier positif'
-        });
-      }
-      
-      // Valider l'ID d'objet
-      if (itemId && (isNaN(parseInt(itemId)) || parseInt(itemId) <= 0)) {
-        return res.status(400).json({ 
-          error: 'ID d\'objet invalide',
-          details: 'L\'ID de l\'objet doit être un nombre entier positif'
-        });
-      }
-      
-      // Valider l'ID générique
-      if (id && (isNaN(parseInt(id)) || parseInt(id) <= 0)) {
-        return res.status(400).json({ 
-          error: 'ID invalide',
-          details: 'L\'ID doit être un nombre entier positif'
-        });
-      }
+    try {
+      if (schema.body) req.body = schema.body.parse(req.body);
+      if (schema.params) req.params = schema.params.parse(req.params);
+      if (schema.query) req.query = schema.query.parse(req.query);
+      return next();
+    } catch (e) {
+      return res.status(400).json({ error: 'Validation error', details: e.errors || e.message });
     }
-    
-    next();
   };
-};
+}
 
+<<<<<<< Current (Your changes)
 /**
  * Valide le corps de la requête pour les quêtes
  */
@@ -187,3 +133,6 @@ module.exports = {
   validatePagination,
   validateSearch
 };
+=======
+module.exports = { validate, z };
+>>>>>>> Incoming (Background Agent changes)

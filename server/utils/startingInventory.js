@@ -7,18 +7,6 @@ const characterClasses = require('../data/sid/character_classes');
 const equipments = require('../data/sid/equipments');
 const items = require('../data/sid/items');
 
-// Debug: vérifier l'import
-console.log('🔍 Debug equipments import:', equipments ? 'OK' : 'UNDEFINED');
-if (equipments) {
-  console.log('🔍 equipments structure:', {
-    hasArmors: !!equipments.armors,
-    hasWeapons: !!equipments.weapons,
-    hasAccessories: !!equipments.accessories,
-    armorsCount: equipments.armors ? equipments.armors.length : 0,
-    weaponsCount: equipments.weapons ? equipments.weapons.length : 0,
-    accessoriesCount: equipments.accessories ? equipments.accessories.length : 0
-  });
-}
 
 class StartingInventoryManager {
   constructor() {
@@ -260,28 +248,19 @@ class StartingInventoryManager {
    */
   async getBasicItemIds(client) {
     try {
-      // Récupérer les IDs des objets de base
       const result = await client.query(`
         SELECT id, name FROM items 
         WHERE name IN ('copper_coin', 'health_potion_small', 'mana_potion_small')
         ORDER BY name
       `);
-      
       const itemIds = {};
       result.rows.forEach(row => {
         itemIds[row.name] = row.id;
       });
-      
-      console.log('🔍 IDs des objets de base trouvés:', itemIds);
       return itemIds;
     } catch (error) {
       console.error('❌ Erreur lors de la récupération des IDs des objets:', error);
-      // Fallback vers des IDs hardcodés si la requête échoue
-      return {
-        copper_coin: 1,
-        health_potion_small: 2,
-        mana_potion_small: 3
-      };
+      return {};
     }
   }
 
@@ -297,9 +276,11 @@ class StartingInventoryManager {
       // Récupérer les IDs des équipements
       const placeholders = equipmentNames.map((_, index) => `$${index + 1}`).join(',');
       const result = await client.query(`
-        SELECT id, name, display_name FROM items 
-        WHERE display_name IN (${placeholders}) OR name IN (${placeholders})
-        ORDER BY name
+        SELECT i.id, i.name, i.display_name, it.equip_slot 
+        FROM items i
+        JOIN item_types it ON i.type_id = it.id
+        WHERE i.display_name IN (${placeholders}) OR i.name IN (${placeholders})
+        ORDER BY i.name
       `, [...equipmentNames, ...equipmentNames]);
       
       const equipmentIds = result.rows.map(row => ({
@@ -307,7 +288,7 @@ class StartingInventoryManager {
         name: row.name,
         quantity: 1,
         equipped: true,
-        slot: this.getEquipmentSlotFromName(row.name)
+        slot: row.equip_slot || null
       }));
       
       console.log('🔍 IDs des équipements de départ trouvés:', equipmentIds);
@@ -366,12 +347,10 @@ class StartingInventoryManager {
     const itemIds = await this.getBasicItemIds(client);
 
     // Ajouter les objets de base pour toutes les classes
-    const basicItems = [
-      { id: itemIds.copper_coin, quantity: 10, equipped: false, slot: null }, // 10 copper coins
-      { id: itemIds.health_potion_small, quantity: 3, equipped: false, slot: null }, // 3 potions de soin
-      { id: itemIds.mana_potion_small, quantity: 3, equipped: false, slot: null } // 3 potions de mana
-    ];
-
+    const basicItems = [];
+    if (itemIds.copper_coin) basicItems.push({ id: itemIds.copper_coin, quantity: 10, equipped: false, slot: null });
+    if (itemIds.health_potion_small) basicItems.push({ id: itemIds.health_potion_small, quantity: 3, equipped: false, slot: null });
+    if (itemIds.mana_potion_small) basicItems.push({ id: itemIds.mana_potion_small, quantity: 3, equipped: false, slot: null });
     inventory.push(...basicItems);
 
     // Ajouter les équipements de départ spécifiques à la classe
@@ -381,7 +360,7 @@ class StartingInventoryManager {
       console.log(`   ⚔️ ${startingEquipment.length} équipements de départ ajoutés pour la classe ${characterClass}`);
     }
 
-    console.log(`   📦 ${inventory.length} objets générés pour l'inventaire de départ`);
+    
 
     return inventory;
   }

@@ -222,7 +222,15 @@ const Quests = () => {
           <span>•</span>
           <span>{character.experience} / {character.experience_to_next} EXP</span>
           <span>•</span>
-          <span>Classe: {character.class_display_name || character.class_name || character.class || 'Inconnue'}</span>
+          {(() => {
+            const classLabel = (
+              character.class_display_name ||
+              character.class_name ||
+              (typeof character.class === 'string' ? character.class : (character.class && (character.class.display_name || character.class.name))) ||
+              'Inconnue'
+            );
+            return <span>Classe: {classLabel}</span>;
+          })()}
         </div>
       </motion.div>
 

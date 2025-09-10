@@ -345,6 +345,48 @@ router.get('/dungeons', injectCacheService, async (req, res) => {
 });
 
 /**
+ * GET /api/static/difficulties
+ * Récupère toutes les difficultés (avec cache)
+ */
+router.get('/difficulties', injectCacheService, async (req, res) => {
+  try {
+    const getDiffs = withFallback(
+      () => req.cacheService.getStaticData('difficulties'),
+      async () => {
+        try {
+          const result = await req.app.locals.dataService.pool.query('SELECT * FROM difficulties ORDER BY order_index, id');
+          return result.rows;
+        } catch (_) { return null; }
+      }
+    );
+    const diffs = await getDiffs();
+
+    if (!diffs) {
+      return res.status(503).json({ error: 'Données non disponibles' });
+    }
+
+    res.json({
+      success: true,
+      difficulties: diffs.map(d => ({
+        id: d.id,
+        name: d.name,
+        display_name: d.display_name,
+        color: d.color,
+        icon: d.icon,
+        description: d.description,
+        stat_multiplier: d.stat_multiplier,
+        exp_multiplier: d.exp_multiplier,
+        gold_multiplier: d.gold_multiplier,
+        order_index: d.order_index
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Error fetching difficulties:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+/**
  * GET /api/static/enemies
  * Récupère tous les ennemis (avec cache)
  */
@@ -480,6 +522,57 @@ router.post('/cache/refresh', injectCacheService, async (req, res) => {
   } catch (error) {
     console.error('❌ Error refreshing cache:', error);
     res.status(500).json({ error: 'Erreur lors du rafraîchissement du cache' });
+  }
+});
+
+/**
+ * GET /api/static/quests
+ * Renvoie la liste des quêtes statiques (compat Frontend)
+ */
+router.get('/quests', injectCacheService, async (req, res) => {
+  try {
+    const questsData = require('../data/sid/quests');
+
+    const mapQuestType = (type) => {
+      const t = (type || '').toLowerCase();
+      if (t === 'exploration') return 'explore';
+      if (t === 'boss') return 'kill';
+      if (t === 'defense') return 'defense';
+      if (t === 'ascension') return 'explore';
+      if (t === 'mastery') return 'craft';
+      if (t === 'mystery') return 'explore';
+      return t || 'task';
+    };
+
+    const buildObjective = (obj) => {
+      if (!obj || typeof obj !== 'object') return undefined;
+      const entries = Object.entries(obj);
+      if (!entries.length) return undefined;
+      return entries.map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(', ');
+    };
+
+    const makeId = (title, idx) => {
+      const base = String(title || `quest_${idx}`).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      return `${base}_${idx}`;
+    };
+
+    const quests = (Array.isArray(questsData) ? questsData : []).map((q, idx) => ({
+      id: q.id || makeId(q.title, idx),
+      title: q.title,
+      description: q.description,
+      type: mapQuestType(q.type),
+      min_level: q.level_requirement || (q.requirements && q.requirements.level) || 1,
+      exp_reward: (q.rewards && q.rewards.experience) || 0,
+      gold_reward: (q.rewards && q.rewards.gold) || 0,
+      item_rewards: Array.isArray(q.rewards && q.rewards.items) ? q.rewards.items : (q.rewards && q.rewards.items ? [q.rewards.items] : []),
+      objective: buildObjective(q.objectives),
+      icon: q.icon
+    }));
+
+    res.json({ success: true, quests });
+  } catch (error) {
+    console.error('❌ Error fetching quests:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 });
 

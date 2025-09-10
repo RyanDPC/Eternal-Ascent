@@ -2,6 +2,16 @@
 -- VUES SQL OPTIMISÉES POUR ETERNAL ASCENT
 -- =====================================================
 
+-- Supprimer les vues existantes pour permettre les changements de noms/ordres de colonnes
+DROP VIEW IF EXISTS guild_members_full;
+DROP VIEW IF EXISTS guilds_full;
+DROP VIEW IF EXISTS dungeons_with_progress;
+DROP VIEW IF EXISTS character_inventory_full;
+DROP VIEW IF EXISTS enemies_with_combat_info;
+DROP VIEW IF EXISTS items_with_stats;
+DROP VIEW IF EXISTS quests_with_progress;
+DROP VIEW IF EXISTS characters_full;
+
 -- Vue pour les personnages avec toutes les informations
 CREATE OR REPLACE VIEW characters_full AS
 SELECT 

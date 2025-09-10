@@ -12,8 +12,7 @@ class CacheService {
         password: process.env.REDIS_PASSWORD || null
       };
 
-    // In-memory fallback store
-    this.memoryStore = new Map();
+    this.memoryStore = null;
 
     try {
       this.redis = Redis.createClient({
@@ -69,9 +68,6 @@ class CacheService {
       const serializedData = JSON.stringify(data);
       if (this.setAsync) {
         await this.setAsync(key, serializedData, 'EX', ttl);
-      } else {
-        const expiresAt = Date.now() + ttl * 1000;
-        this.memoryStore.set(key, { value: serializedData, expiresAt });
       }
       // console.log(`📦 Cached static data: ${key}`);
     } catch (error) {
@@ -87,13 +83,6 @@ class CacheService {
       let cachedData = null;
       if (this.getAsync) {
         cachedData = await this.getAsync(key);
-      } else {
-        const entry = this.memoryStore.get(key);
-        if (entry && entry.expiresAt > Date.now()) {
-          cachedData = entry.value;
-        } else if (entry) {
-          this.memoryStore.delete(key);
-        }
       }
       if (cachedData) {
         // console.log(`📦 Retrieved from cache: ${key}`);
@@ -136,7 +125,6 @@ class CacheService {
       if (this.delAsync) {
         await this.delAsync(key);
       }
-      this.memoryStore.delete(key);
     }
     console.log(`🗑️ Invalidated cache for character: ${characterId}`);
   }
@@ -230,13 +218,12 @@ class CacheService {
       const dungeons = await dbManager.pool.query('SELECT * FROM dungeons');
       await this.cacheStaticData('dungeons', dungeons.rows, 86400);
 
-      // Charger les difficultes via SID generator
+      // Charger les difficultés depuis la DB
       try {
-        const difficultyManager = require('../data/sid/difficulties');
-        const diffs = difficultyManager.generateDifficulties();
-        await this.cacheStaticData('difficulties', diffs, 86400);
+        const diffs = await dbManager.pool.query('SELECT * FROM difficulties');
+        await this.cacheStaticData('difficulties', diffs.rows, 86400);
       } catch (e) {
-        console.warn('⚠️ difficulties not generated, skipping');
+        console.warn('⚠️ difficulties table not found, skipping');
       }
 
       // Charger les ennemis

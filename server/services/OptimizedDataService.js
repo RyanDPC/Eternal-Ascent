@@ -137,14 +137,16 @@ class OptimizedDataService {
 
       // === DONJONS ===
       'get_dungeons_by_level': `
-        SELECT d.*, d.difficulty as difficulty_name, '#FF6B6B' as difficulty_color
+        SELECT d.*, diff.name as difficulty_name, diff.color as difficulty_color
         FROM dungeons d
+        JOIN difficulties diff ON d.difficulty_id = diff.id
         WHERE d.level_requirement <= $1
         ORDER BY d.level_requirement, d.id
       `,
       'get_dungeon_by_id': `
-        SELECT d.*, d.difficulty as difficulty_name, '#FF6B6B' as difficulty_color
+        SELECT d.*, diff.name as difficulty_name, diff.color as difficulty_color
         FROM dungeons d
+        JOIN difficulties diff ON d.difficulty_id = diff.id
         WHERE d.id = $1
       `,
       'get_character_dungeons': `
@@ -373,41 +375,8 @@ class OptimizedDataService {
       const result = await this.pool.query('SELECT calculate_character_stats($1) as stats', [character.id]);
       return result.rows[0].stats;
     } catch (error) {
-      console.warn('Erreur calcul stats SQL, fallback manuel:', error.message);
-      
-      // Fallback manuel
-      const baseStats = character.class_base_stats || {};
-      const characterStats = {
-        health: character.health,
-        max_health: character.max_health,
-        mana: character.mana,
-        max_mana: character.max_mana,
-        attack: character.attack,
-        defense: character.defense,
-        magic_attack: character.magic_attack,
-        magic_defense: character.magic_defense,
-        critical_rate: character.critical_rate,
-        critical_damage: character.critical_damage
-      };
-
-      // Appliquer les bonus d'équipement
-      if (character.inventory) {
-        for (const item of character.inventory) {
-          if (item.equipped && item.item_base_stats) {
-            const itemStats = typeof item.item_base_stats === 'string' 
-              ? JSON.parse(item.item_base_stats) 
-              : item.item_base_stats;
-
-            for (const [stat, value] of Object.entries(itemStats)) {
-              if (characterStats[stat] !== undefined) {
-                characterStats[stat] += parseInt(value) || 0;
-              }
-            }
-          }
-        }
-      }
-
-      return characterStats;
+      console.error('❌ SQL stats calculation failed:', error);
+      throw error;
     }
   }
 
@@ -705,6 +674,46 @@ class OptimizedDataService {
       await this.pool.query('ALTER TABLE characters ALTER COLUMN critical_damage TYPE DECIMAL(6,2)');
       console.log('✅ Column critical_damage altered to DECIMAL(6,2)');
     }
+
+    // Ensure users has email verification columns
+    const userCols = await this.pool.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users'
+    `);
+    const hasIsVerified = userCols.rows.some(r => r.column_name === 'is_email_verified');
+    const hasVerifiedAt = userCols.rows.some(r => r.column_name === 'email_verified_at');
+    if (!hasIsVerified) {
+      console.log('🛠️ Adding users.is_email_verified ...');
+      await this.pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN NOT NULL DEFAULT false`);
+    }
+    if (!hasVerifiedAt) {
+      console.log('🛠️ Adding users.email_verified_at ...');
+      await this.pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP`);
+    }
+
+    // Ensure auth_codes table exists
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS auth_codes (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(100) NOT NULL,
+        code VARCHAR(100) NOT NULL,
+        purpose VARCHAR(20) NOT NULL CHECK (purpose IN ('register','login','verify')),
+        expires_at TIMESTAMP NOT NULL,
+        consumed_at TIMESTAMP,
+        attempts SMALLINT NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+        ip VARCHAR(64),
+        user_agent VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_codes(email)`);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_codes(expires_at)`);
+    await this.pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_codes_email_purpose_active ON auth_codes (email, purpose) WHERE consumed_at IS NULL`);
+
+    // Ensure items.name is unique
+    try {
+      await this.pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uq_items_name ON items(name)');
+    } catch (_) {}
   }
 
   /**
