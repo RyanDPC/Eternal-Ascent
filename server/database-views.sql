@@ -2,6 +2,156 @@
 -- VUES SQL OPTIMISÉES POUR ETERNAL ASCENT
 -- =====================================================
 
+-- =====================================================
+-- FONCTIONS JSON "PUBLIC API" PROPRES
+-- =====================================================
+
+-- get_character_public: retourne un JSON propre et stable pour le frontend
+CREATE OR REPLACE FUNCTION get_character_public(p_character_id INT)
+RETURNS JSONB AS $$
+DECLARE
+  ch RECORD;
+  inv JSONB := '[]'::jsonb;
+BEGIN
+  SELECT cf.* INTO ch FROM characters_full cf WHERE cf.id = p_character_id;
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  -- inventaire minimal (équipé + non équipé)
+  inv := (
+    SELECT COALESCE(jsonb_agg(
+      jsonb_build_object(
+        'id', ci.id,
+        'item_id', ci.item_id,
+        'name', ci.item_name,
+        'display_name', ci.item_display_name,
+        'description', ci.item_description,
+        'type', jsonb_build_object(
+          'name', ci.item_type,
+          'display_name', ci.item_type_display_name,
+          'category', ci.item_category,
+          'equip_slot', ci.item_equip_slot
+        ),
+        'rarity', jsonb_build_object(
+          'name', ci.rarity_name,
+          'display_name', ci.rarity_display_name,
+          'color', ci.rarity_color
+        ),
+        'level_requirement', ci.level_requirement,
+        'base_stats', ci.item_base_stats,
+        'effects', ci.item_effects,
+        'quantity', ci.quantity,
+        'equipped', ci.equipped,
+        'equipped_slot', ci.equipped_slot,
+        'icon', ci.item_icon,
+        'image', ci.item_image
+      )
+    ), '[]'::jsonb)
+    FROM character_inventory_full ci
+    WHERE ci.character_id = p_character_id
+  );
+
+  RETURN jsonb_build_object(
+    'id', ch.id,
+    'name', ch.name,
+    'class_name', ch.class_name,
+    'class_display_name', ch.class_display_name,
+    'level', ch.level,
+    'experience', ch.experience,
+    'experience_to_next', ch.experience_to_next,
+    'stats', jsonb_build_object(
+      'base', jsonb_build_object(
+        'health', ch.health,
+        'max_health', ch.max_health,
+        'mana', ch.mana,
+        'max_mana', ch.max_mana,
+        'attack', ch.attack,
+        'defense', ch.defense,
+        'magic_attack', ch.magic_attack,
+        'magic_defense', ch.magic_defense,
+        'critical_rate', ch.critical_rate,
+        'critical_damage', ch.critical_damage
+      ),
+      'secondary', jsonb_build_object(
+        'vitality', ch.vitality,
+        'strength', ch.strength,
+        'intelligence', ch.intelligence,
+        'agility', ch.agility,
+        'resistance', ch.resistance,
+        'precision', ch.precision,
+        'endurance', ch.endurance,
+        'wisdom', ch.wisdom,
+        'constitution', ch.constitution,
+        'dexterity', ch.dexterity
+      ),
+      'derived', jsonb_build_object(
+        'health_regen', ch.health_regen,
+        'mana_regen', ch.mana_regen,
+        'attack_speed', ch.attack_speed,
+        'movement_speed', ch.movement_speed,
+        'dodge_chance', ch.dodge_chance,
+        'block_chance', ch.block_chance,
+        'parry_chance', ch.parry_chance,
+        'spell_power', ch.spell_power,
+        'physical_power', ch.physical_power
+      ),
+      'calculated', calculate_character_stats(ch.id)
+    ),
+    'equipped_items', (
+      SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'id', ci.id,
+        'item_id', ci.item_id,
+        'name', ci.item_name,
+        'display_name', ci.item_display_name,
+        'type', ci.item_type,
+        'rarity', ci.rarity_name,
+        'base_stats', ci.item_base_stats,
+        'effects', ci.item_effects,
+        'equipped_slot', ci.equipped_slot,
+        'icon', ci.item_icon
+      ) ORDER BY ci.equipped_slot), '[]'::jsonb)
+      FROM character_inventory_full ci
+      WHERE ci.character_id = ch.id AND ci.equipped = true
+    ),
+    'user', jsonb_build_object(
+      'id', ch.user_id,
+      'username', ch.username,
+      'email', ch.email,
+      'last_login', ch.last_login
+    ),
+    'created_at', ch.created_at,
+    'updated_at', ch.updated_at
+  );
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- get_user_public: retourne un JSON propre pour l'utilisateur + extrait personnage
+CREATE OR REPLACE FUNCTION get_user_public(p_user_id INT)
+RETURNS JSONB AS $$
+DECLARE
+  u RECORD;
+  ch RECORD;
+BEGIN
+  SELECT id, username, email, last_login, created_at, updated_at INTO u FROM users WHERE id = p_user_id;
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT id, name, level FROM characters WHERE user_id = p_user_id LIMIT 1 INTO ch;
+
+  RETURN jsonb_build_object(
+    'id', u.id,
+    'username', u.username,
+    'email', u.email,
+    'last_login', u.last_login,
+    'created_at', u.created_at,
+    'updated_at', u.updated_at,
+    'character', CASE WHEN ch.id IS NULL THEN NULL ELSE jsonb_build_object('id', ch.id, 'name', ch.name, 'level', ch.level) END
+  );
+END;
+$$ LANGUAGE plpgsql STABLE;
+
 -- Vue pour les personnages avec toutes les informations
 CREATE OR REPLACE VIEW characters_full AS
 SELECT 

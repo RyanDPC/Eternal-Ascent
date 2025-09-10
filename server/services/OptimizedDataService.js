@@ -79,6 +79,12 @@ class OptimizedDataService {
       'get_character_full': `
         SELECT * FROM characters_full WHERE id = $1
       `,
+      'get_character_public': `
+        SELECT get_character_public($1) AS character
+      `,
+      'get_user_public': `
+        SELECT get_user_public($1) AS user
+      `,
       'get_character_by_user': `
         SELECT * FROM characters_full WHERE user_id = $1
       `,
@@ -263,20 +269,12 @@ class OptimizedDataService {
       }
     }
 
-    const character = await this.executePrepared('get_character_full', [characterId]);
-    if (character.length === 0) {
+    // Utiliser la fonction JSON propre
+    const row = await this.executePrepared('get_character_public', [characterId]);
+    if (row.length === 0 || !row[0].character) {
       return null;
     }
-
-    const characterData = character[0];
-    
-    // Récupérer l'inventaire
-    const inventory = await this.getCharacterInventory(characterId, false);
-    characterData.inventory = inventory;
-
-    // Calculer les stats finales
-    const calculatedStats = await this.calculateCharacterStats(characterData);
-    characterData.calculated_stats = calculatedStats;
+    const characterData = row[0].character;
 
     if (useCache) {
       await this.cache.cacheCharacterStats(characterId, characterData, 300);
@@ -298,20 +296,13 @@ class OptimizedDataService {
       }
     }
 
-    const character = await this.executePrepared('get_character_by_user', [userId]);
-    if (character.length === 0) {
-      return null;
-    }
-
-    const characterData = character[0];
-    
-    // Récupérer l'inventaire
-    const inventory = await this.getCharacterInventory(characterData.id, false);
-    characterData.inventory = inventory;
-
-    // Calculer les stats finales
-    const calculatedStats = await this.calculateCharacterStats(characterData);
-    characterData.calculated_stats = calculatedStats;
+    // Récupérer via fonction publique à partir de l'id de personnage (si connu)
+    const byUser = await this.executePrepared('get_character_by_user', [userId]);
+    if (byUser.length === 0) return null;
+    const charId = byUser[0].id;
+    const row = await this.executePrepared('get_character_public', [charId]);
+    if (row.length === 0 || !row[0].character) return null;
+    const characterData = row[0].character;
 
     if (useCache) {
       await this.cache.set(cacheKey, characterData, 300);
@@ -368,47 +359,10 @@ class OptimizedDataService {
    * Calcule les stats finales d'un personnage avec équipement
    */
   async calculateCharacterStats(character) {
-    try {
-      // Utiliser la fonction SQL optimisée
-      const result = await this.pool.query('SELECT calculate_character_stats($1) as stats', [character.id]);
-      return result.rows[0].stats;
-    } catch (error) {
-      console.warn('Erreur calcul stats SQL, fallback manuel:', error.message);
-      
-      // Fallback manuel
-      const baseStats = character.class_base_stats || {};
-      const characterStats = {
-        health: character.health,
-        max_health: character.max_health,
-        mana: character.mana,
-        max_mana: character.max_mana,
-        attack: character.attack,
-        defense: character.defense,
-        magic_attack: character.magic_attack,
-        magic_defense: character.magic_defense,
-        critical_rate: character.critical_rate,
-        critical_damage: character.critical_damage
-      };
-
-      // Appliquer les bonus d'équipement
-      if (character.inventory) {
-        for (const item of character.inventory) {
-          if (item.equipped && item.item_base_stats) {
-            const itemStats = typeof item.item_base_stats === 'string' 
-              ? JSON.parse(item.item_base_stats) 
-              : item.item_base_stats;
-
-            for (const [stat, value] of Object.entries(itemStats)) {
-              if (characterStats[stat] !== undefined) {
-                characterStats[stat] += parseInt(value) || 0;
-              }
-            }
-          }
-        }
-      }
-
-      return characterStats;
-    }
+    // Cette méthode n'est plus appelée directement par les routes publiques,
+    // mais on la garde pour des usages internes éventuels.
+    const result = await this.pool.query('SELECT calculate_character_stats($1) as stats', [character.id]);
+    return result.rows[0].stats;
   }
 
   /**
