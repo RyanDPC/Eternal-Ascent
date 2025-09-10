@@ -27,6 +27,7 @@ const systemsRoutes = require('./routes/systems');
 const talentsRoutes = require('./routes/talents');
 const combatRoutes = require('./routes/combat');
 const docsRoutes = require('./routes/docs');
+const adminRoutes = require('./routes/admin');
 const authenticateToken = require('./middleware/auth');
 
 const config = require('./config');
@@ -264,6 +265,7 @@ app.use('/api/static', staticRoutes);
 app.use('/api/talents', talentsRoutes);
 app.use('/api', combatRoutes);
 app.use('/api', docsRoutes);
+app.use('/api', adminRoutes);
 
 // Injecter et monter les systèmes avancés
 app.use((req, res, next) => {
