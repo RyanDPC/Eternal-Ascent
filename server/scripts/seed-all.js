@@ -13,6 +13,7 @@ const materials = require('../data/sid/materials');
 const currency = require('../data/sid/currency');
 const items = require('../data/sid/items');
 const difficultiesData = require('../data/sid/difficulties');
+const skillsManager = require('../data/sid/skills');
 
 function getDbConfig() {
   if (process.env.DATABASE_URL) {
@@ -277,8 +278,8 @@ class Seeder {
       await this.query(`
         INSERT INTO character_classes (
           name, display_name, description, rarity_id, probability,
-          base_stats, stat_ranges, starting_equipment, icon
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          base_stats, stat_ranges, starting_equipment, starting_skills, icon
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
         ON CONFLICT (name) DO UPDATE SET
           display_name = EXCLUDED.display_name,
           description = EXCLUDED.description,
@@ -287,6 +288,7 @@ class Seeder {
           base_stats = EXCLUDED.base_stats,
           stat_ranges = EXCLUDED.stat_ranges,
           starting_equipment = EXCLUDED.starting_equipment,
+          starting_skills = EXCLUDED.starting_skills,
           icon = EXCLUDED.icon,
           updated_at = NOW()
       `, [
@@ -298,6 +300,7 @@ class Seeder {
         JSON.stringify(c.base_stats || {}),
         JSON.stringify(c.stat_ranges || {}),
         JSON.stringify(c.starting_equipment || []),
+        JSON.stringify(c.starting_skills || skillsManager.getSkillsByClass ? skillsManager.getSkillsByClass(c.name).map(s => s.name) : []),
         c.icon || null
       ]);
     }
@@ -359,6 +362,17 @@ class Seeder {
         d.icon || null,
         d.theme || null
       ]);
+      // Relier les ennemis au tableau relationnel dungeon_enemies
+      for (const enemyName of enemiesArr) {
+        const enemyRow = await this.getSingle('SELECT id FROM enemies WHERE name = $1 OR display_name = $1', [enemyName]);
+        if (enemyRow) {
+          await this.query(`
+            INSERT INTO dungeon_enemies (dungeon_id, enemy_id, spawn_rate, min_group, max_group)
+            VALUES ((SELECT id FROM dungeons WHERE name = $1), $2, $3, $4, $5)
+            ON CONFLICT (dungeon_id, enemy_id) DO NOTHING
+          `, [d.name, enemyRow.id, 10.0, 1, 3]);
+        }
+      }
     }
   }
 
