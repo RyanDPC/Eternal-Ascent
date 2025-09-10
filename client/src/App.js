@@ -21,6 +21,7 @@ import Inventory from './components/inventory/Inventory.jsx';
 const Dungeons = lazy(() => import('./components/dungeons/Dungeons'));
 const GamePage = lazy(() => import('./components/game/GamePage'));
 const GuildSystem = lazy(() => import('./components/guilds/Guilds'));
+const AdvancedHub = lazy(() => import('./components/advanced/AdvancedHub.jsx'));
 
 function App() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -156,6 +157,11 @@ function App() {
                     <Route path="/guilds" element={
                       <ProtectedRoute>
                         <GuildSystem />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/advanced" element={
+                      <ProtectedRoute>
+                        <AdvancedHub />
                       </ProtectedRoute>
                     } />
                   </Routes>
