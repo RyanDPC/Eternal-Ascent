@@ -26,10 +26,13 @@ const staticRoutes = require('./routes/static');
 const systemsRoutes = require('./routes/systems');
 const talentsRoutes = require('./routes/talents');
 const combatRoutes = require('./routes/combat');
+const docsRoutes = require('./routes/docs');
 const authenticateToken = require('./middleware/auth');
 
+const config = require('./config');
+const TokenService = require('./services/TokenService');
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = config.port;
 
 // Initialisation des services
 let dataService;
@@ -39,6 +42,7 @@ let wsManager;
 let rotationService;
 let mailService;
 let characterProvisioning;
+let tokenService;
 
 // =====================================================
 // MIDDLEWARE DE SÉCURITÉ ET PERFORMANCE
@@ -46,14 +50,19 @@ let characterProvisioning;
 
 // Helmet pour la sécurité
 app.use(helmet({
-  contentSecurityPolicy: {
+  contentSecurityPolicy: config.env === 'production' ? {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "'strict-dynamic'"],
+      styleSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: []
     },
-  },
+  } : false,
   crossOriginEmbedderPolicy: false,
   xFrameOptions: { action: 'deny' },
   xssFilter: true,
@@ -62,7 +71,15 @@ app.use(helmet({
     includeSubDomains: true,
     preload: true
   },
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  permissionsPolicy: {
+    features: {
+      geolocation: ["'none'"],
+      camera: ["'none'"],
+      microphone: ["'none'"],
+      usb: ["'none'"],
+    }
+  }
 }));
 
 // Compression
@@ -95,9 +112,7 @@ app.use('/api/items/search', createRateLimit(5 * 60 * 1000, 50, 'Trop de recherc
 
 // CORS optimisé
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] 
-    : ['http://localhost:3000', 'http://localhost:3001'],
+  origin: config.cors.origins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -248,6 +263,7 @@ app.use('/api/items', optimizedItemRoutes);
 app.use('/api/static', staticRoutes);
 app.use('/api/talents', talentsRoutes);
 app.use('/api', combatRoutes);
+app.use('/api', docsRoutes);
 
 // Injecter et monter les systèmes avancés
 app.use((req, res, next) => {
@@ -381,17 +397,14 @@ app.post('/api/auth/verify-email', validate({ body: z.object({
       character = await characterProvisioning.provisionCharacterForUser(user.id, { characterName, className });
     }
 
-    // Créer token
-    const token = jwt.sign(
-      { userId: user.id, username: user.username },
-      process.env.JWT_SECRET || 'eterna_secret_key',
-      { expiresIn: '24h' }
-    );
+    // Émettre tokens (access + refresh)
+    const tokens = await tokenService.issueTokens({ userId: user.id, username: user.username });
 
     return res.status(200).json({
       success: true,
       message: 'Connexion réussie',
-      token,
+      token: tokens.access,
+      refresh_token: tokens.refresh,
       user: { id: user.id, username: user.username, email },
       character
     });
@@ -408,6 +421,18 @@ app.post('/api/auth/resend-email-code', async (req, res) => {
     return app.handle(req, res);
   } catch (e) {
     return res.status(500).json({ error: 'Erreur lors du renvoi du code' });
+  }
+});
+
+// Refresh token rotation
+app.post('/api/auth/refresh', validate({ body: z.object({ refresh_token: z.string().min(10) }) }), async (req, res) => {
+  try {
+    const { refresh_token } = req.body;
+    const payload = await tokenService.verifyRefresh(refresh_token);
+    const tokens = await tokenService.rotateRefreshToken(payload.sub, refresh_token);
+    return res.json({ success: true, token: tokens.access, refresh_token: tokens.refresh });
+  } catch (e) {
+    return res.status(401).json({ error: 'Refresh invalide' });
   }
 });
 
@@ -772,6 +797,7 @@ async function startServer() {
     systems.set('quests', new QuestSystem(dataService.pool));
     rotationService = new RotationService(dataService, cacheService, systems.get('quests'));
     systems.set('rotations', rotationService);
+    tokenService = new TokenService(dataService.pool);
     
     // Mail & Provisioning services
     mailService = new MailService();
@@ -782,6 +808,7 @@ async function startServer() {
       req.dataService = dataService;
       req.cacheService = cacheService;
       req.mailService = mailService;
+      req.tokenService = tokenService;
       next();
     });
     

@@ -709,6 +709,11 @@ class OptimizedDataService {
     await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_codes(email)`);
     await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_codes(expires_at)`);
     await this.pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_codes_email_purpose_active ON auth_codes (email, purpose) WHERE consumed_at IS NULL`);
+
+    // Ensure items.name is unique
+    try {
+      await this.pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uq_items_name ON items(name)');
+    } catch (_) {}
   }
 
   /**

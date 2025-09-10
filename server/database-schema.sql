@@ -94,7 +94,7 @@ CREATE TABLE difficulties (
 -- Table des objets (ultra-optimisée)
 CREATE TABLE items (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(80) NOT NULL,
+    name VARCHAR(80) NOT NULL UNIQUE,
     display_name VARCHAR(100) NOT NULL,
     description TEXT,
     type_id SMALLINT NOT NULL REFERENCES item_types(id),
