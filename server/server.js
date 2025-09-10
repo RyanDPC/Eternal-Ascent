@@ -449,7 +449,8 @@ app.get('/api/user/profile', requireAuth, async (req, res) => {
     if (!out || out.length === 0 || !out[0].user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
-    return res.json(out[0]);
+    // Renvoyer directement l'objet utilisateur pour compat frontend
+    return res.json(out[0].user);
   } catch (e) {
     console.error('❌ Erreur profil:', e);
     res.status(500).json({ error: 'Erreur serveur' });

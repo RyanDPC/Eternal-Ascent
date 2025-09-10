@@ -85,72 +85,18 @@ router.get('/:id', validateCharacterId, injectDataService, async (req, res) => {
  */
 router.get('/:id/stats', validateCharacterId, injectDataService, async (req, res) => {
   try {
-    const character = await req.dataService.getCharacter(req.characterId);
-    
-    if (!character) {
-      return res.status(404).json({ error: 'Personnage non trouvé' });
-    }
-
-    const equippedItems = (character.inventory || []).filter(i => i.equipped);
+    const out = await req.dataService.executePrepared('get_character_public', [req.characterId]);
+    const payload = out[0] && out[0].character;
+    if (!payload) return res.status(404).json({ error: 'Personnage non trouvé' });
 
     res.json({
       success: true,
-      // Compat: réponse élargie pour le Dashboard
-      final_stats: character.calculated_stats,
-      equipped_items: equippedItems.map(item => ({
-        id: item.id,
-        item_id: item.item_id,
-        name: item.item_name,
-        display_name: item.item_display_name,
-        type: item.item_type,
-        rarity: item.rarity_name,
-        base_stats: item.item_base_stats,
-        effects: item.item_effects,
-        equipped_slot: item.equipped_slot,
-        icon: item.item_icon
-      })),
-      // Champs détaillés conservés
-      stats: {
-        calculated: character.calculated_stats,
-        base: {
-          health: character.health,
-          max_health: character.max_health,
-          mana: character.mana,
-          max_mana: character.max_mana,
-          attack: character.attack,
-          defense: character.defense,
-          magic_attack: character.magic_attack,
-          magic_defense: character.magic_defense,
-          critical_rate: character.critical_rate,
-          critical_damage: character.critical_damage
-        },
-        secondary: {
-          vitality: character.vitality,
-          strength: character.strength,
-          intelligence: character.intelligence,
-          agility: character.agility,
-          resistance: character.resistance,
-          precision: character.precision,
-          endurance: character.endurance,
-          wisdom: character.wisdom,
-          constitution: character.constitution,
-          dexterity: character.dexterity
-        },
-        derived: {
-          health_regen: character.health_regen,
-          mana_regen: character.mana_regen,
-          attack_speed: character.attack_speed,
-          movement_speed: character.movement_speed,
-          dodge_chance: character.dodge_chance,
-          block_chance: character.block_chance,
-          parry_chance: character.parry_chance,
-          spell_power: character.spell_power,
-          physical_power: character.physical_power
-        }
-      },
-      level: character.level,
-      experience: character.experience,
-      experience_to_next: character.experience_to_next
+      final_stats: payload.stats?.calculated || null,
+      equipped_items: payload.equipped_items || [],
+      stats: payload.stats || {},
+      level: payload.level,
+      experience: payload.experience,
+      experience_to_next: payload.experience_to_next
     });
   } catch (error) {
     console.error('❌ Error fetching character stats:', error);
@@ -164,43 +110,10 @@ router.get('/:id/stats', validateCharacterId, injectDataService, async (req, res
  */
 router.get('/:id/inventory', validateCharacterId, injectDataService, async (req, res) => {
   try {
-    const inventory = await req.dataService.getCharacterInventory(req.characterId);
-    
-    res.json({
-      success: true,
-      inventory: inventory.map(item => ({
-        id: item.id,
-        item_id: item.item_id,
-        name: item.item_name,
-        display_name: item.item_display_name,
-        description: item.item_description,
-        type: {
-          name: item.item_type,
-          display_name: item.item_type_display_name,
-          category: item.item_category,
-          equip_slot: item.item_equip_slot,
-          max_stack: item.item_max_stack
-        },
-        rarity: {
-          name: item.rarity_name,
-          display_name: item.rarity_display_name,
-          color: item.rarity_color,
-          probability: item.rarity_probability,
-          stat_multiplier: item.rarity_stat_multiplier
-        },
-        level_requirement: item.level_requirement,
-        base_stats: item.item_base_stats,
-        stat_ranges: item.item_stat_ranges,
-        effects: item.item_effects,
-        quantity: item.quantity,
-        equipped: item.equipped,
-        equipped_slot: item.equipped_slot,
-        icon: item.item_icon,
-        image: item.item_image,
-        created_at: item.created_at,
-        updated_at: item.updated_at
-      }))
-    });
+    const out = await req.dataService.executePrepared('get_character_public', [req.characterId]);
+    const payload = out[0] && out[0].character;
+    if (!payload) return res.status(404).json({ error: 'Personnage non trouvé' });
+    res.json({ success: true, inventory: payload.inventory || [] });
   } catch (error) {
     console.error('❌ Error fetching character inventory:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
@@ -213,30 +126,10 @@ router.get('/:id/inventory', validateCharacterId, injectDataService, async (req,
  */
 router.get('/:id/equipped', validateCharacterId, injectDataService, async (req, res) => {
   try {
-    const equippedItems = await req.dataService.getCharacterEquippedItems(req.characterId);
-    
-    res.json({
-      success: true,
-      equipped_items: equippedItems.map(item => ({
-        id: item.id,
-        item_id: item.item_id,
-        name: item.item_name,
-        display_name: item.item_display_name,
-        type: {
-          name: item.item_type,
-          category: item.item_category,
-          equip_slot: item.item_equip_slot
-        },
-        rarity: {
-          name: item.rarity_name,
-          color: item.rarity_color
-        },
-        base_stats: item.item_base_stats,
-        effects: item.item_effects,
-        equipped_slot: item.equipped_slot,
-        icon: item.item_icon
-      }))
-    });
+    const out = await req.dataService.executePrepared('get_character_public', [req.characterId]);
+    const payload = out[0] && out[0].character;
+    if (!payload) return res.status(404).json({ error: 'Personnage non trouvé' });
+    res.json({ success: true, equipped_items: payload.equipped_items || [] });
   } catch (error) {
     console.error('❌ Error fetching equipped items:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
@@ -300,34 +193,18 @@ router.put('/:id/unequip', validateCharacterId, injectDataService, async (req, r
     if (!item_id) {
       return res.status(400).json({ error: 'item_id requis' });
     }
-
-    const client = await req.dataService.pool.connect();
-    try {
-      const result = await client.query(
-        'UPDATE character_inventory SET equipped = false, equipped_slot = NULL WHERE character_id = $1 AND item_id = $2 RETURNING *',
-        [req.characterId, item_id]
-      );
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Objet non trouvé ou non équipé' });
+    const result = await req.dataService.unequipItem(req.characterId, item_id);
+    if (!result) return res.status(404).json({ error: 'Objet non trouvé ou non équipé' });
+    res.json({
+      success: true,
+      message: 'Objet déséquipé avec succès',
+      unequipped_item: {
+        id: result.id,
+        item_id: result.item_id,
+        equipped: result.equipped,
+        equipped_slot: result.equipped_slot
       }
-      
-      // Invalider le cache
-      await req.dataService.cache.invalidateCharacterCache(req.characterId);
-      
-      res.json({
-        success: true,
-        message: 'Objet déséquipé avec succès',
-        unequipped_item: {
-          id: result.rows[0].id,
-          item_id: result.rows[0].item_id,
-          equipped: result.rows[0].equipped,
-          equipped_slot: result.rows[0].equipped_slot
-        }
-      });
-    } finally {
-      client.release();
-    }
+    });
   } catch (error) {
     console.error('❌ Error unequipping item:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });

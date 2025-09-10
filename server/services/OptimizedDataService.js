@@ -409,6 +409,24 @@ class OptimizedDataService {
     }
   }
 
+  /**
+   * Déséquipe un objet
+   */
+  async unequipItem(characterId, itemId) {
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        'UPDATE character_inventory SET equipped = false, equipped_slot = NULL, updated_at = CURRENT_TIMESTAMP WHERE character_id = $1 AND item_id = $2 RETURNING *',
+        [characterId, itemId]
+      );
+      if (result.rows.length === 0) return null;
+      await this.cache.invalidateCharacterCache(characterId);
+      return result.rows[0];
+    } finally {
+      client.release();
+    }
+  }
+
   // =====================================================
   // MÉTHODES POUR LES OBJETS
   // =====================================================

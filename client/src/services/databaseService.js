@@ -174,6 +174,7 @@ class DatabaseService {
         throw new Error('Échec de récupération du profil utilisateur');
       }
 
+      // Le backend renvoie désormais directement l'objet user (propre)
       return await response.json();
     } catch (error) {
       console.error('Erreur de récupération du profil utilisateur:', error);
