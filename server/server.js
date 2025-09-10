@@ -443,27 +443,13 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/user/profile', requireAuth, async (req, res) => {
   try {
     const userId = req.auth.userId;
-    const userResult = await dataService.pool.query(
-      'SELECT id, username, email, last_login FROM users WHERE id = $1',
-      [userId]
-    );
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
-
     // Mettre à jour last_login
     await dataService.pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [userId]);
-
-    // Renvoyer profil + personnage si présent
-    const charResult = await dataService.pool.query(
-      'SELECT id, name, level FROM characters WHERE user_id = $1',
-      [userId]
-    );
-
-    return res.json({
-      user: userResult.rows[0],
-      character: charResult.rows[0] || null
-    });
+    const out = await dataService.executePrepared('get_user_public', [userId]);
+    if (!out || out.length === 0 || !out[0].user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+    return res.json(out[0]);
   } catch (e) {
     console.error('❌ Erreur profil:', e);
     res.status(500).json({ error: 'Erreur serveur' });

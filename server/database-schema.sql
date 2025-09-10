@@ -66,6 +66,7 @@ CREATE TABLE character_classes (
     base_stats JSONB NOT NULL DEFAULT '{}',
     stat_ranges JSONB NOT NULL DEFAULT '{}',
     starting_equipment JSONB DEFAULT '[]',
+    starting_skills JSONB DEFAULT '[]',
     icon VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -366,6 +367,419 @@ CREATE TABLE guilds (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- =====================================================
+-- EXTENSIONS DU SCHÉMA DEMANDÉS (UTILISATEURS, PERSOS, MONDE, ÉCONOMIE, SOCIAL)
+-- =====================================================
+
+-- Paramètres utilisateur
+CREATE TABLE user_settings (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    language VARCHAR(10) DEFAULT 'fr',
+    theme VARCHAR(20) DEFAULT 'dark',
+    notifications JSONB DEFAULT '{"email":true, "push":true, "marketing":false}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT user_settings_notifications_valid CHECK (jsonb_typeof(notifications) = 'object')
+);
+
+-- Progression de compte
+CREATE TABLE user_progression (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    account_level SMALLINT NOT NULL DEFAULT 1 CHECK (account_level > 0),
+    achievements_unlocked INTEGER NOT NULL DEFAULT 0 CHECK (achievements_unlocked >= 0),
+    total_playtime INTEGER NOT NULL DEFAULT 0 CHECK (total_playtime >= 0), -- secondes
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Portefeuille utilisateur
+CREATE TABLE user_wallet (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    copper BIGINT NOT NULL DEFAULT 0 CHECK (copper >= 0),
+    silver BIGINT NOT NULL DEFAULT 0 CHECK (silver >= 0),
+    gold BIGINT NOT NULL DEFAULT 0 CHECK (gold >= 0),
+    premium_currency BIGINT NOT NULL DEFAULT 0 CHECK (premium_currency >= 0),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Référentiel de stats
+CREATE TABLE stats_definitions (
+    id SMALLSERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT
+);
+
+-- Stats détaillées de personnage
+CREATE TABLE character_stats (
+    character_id INTEGER PRIMARY KEY REFERENCES characters(id) ON DELETE CASCADE,
+    strength SMALLINT NOT NULL DEFAULT 10 CHECK (strength > 0 AND strength <= 1000),
+    agility SMALLINT NOT NULL DEFAULT 10 CHECK (agility > 0 AND agility <= 1000),
+    intelligence SMALLINT NOT NULL DEFAULT 10 CHECK (intelligence > 0 AND intelligence <= 1000),
+    endurance SMALLINT NOT NULL DEFAULT 10 CHECK (endurance > 0 AND endurance <= 1000),
+    dexterity SMALLINT NOT NULL DEFAULT 10 CHECK (dexterity > 0 AND dexterity <= 1000),
+    vitality SMALLINT NOT NULL DEFAULT 10 CHECK (vitality > 0 AND vitality <= 1000),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Courbes de croissance de stats
+CREATE TABLE character_growth (
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    stat_id SMALLINT NOT NULL REFERENCES stats_definitions(id) ON DELETE CASCADE,
+    rank VARCHAR(3) NOT NULL CHECK (rank IN ('E','D','C','B','A','S','SS','SSS')),
+    scaling_factor DECIMAL(6,3) NOT NULL DEFAULT 1.000 CHECK (scaling_factor > 0),
+    progression_curve VARCHAR(20) NOT NULL DEFAULT 'linear' CHECK (progression_curve IN ('linear','quadratic','exponential','logarithmic','custom')),
+    PRIMARY KEY (character_id, stat_id)
+);
+
+-- Équipement par slot (accès direct)
+CREATE TABLE character_equipment (
+    character_id INTEGER PRIMARY KEY REFERENCES characters(id) ON DELETE CASCADE,
+    head INTEGER REFERENCES items(id),
+    chest INTEGER REFERENCES items(id),
+    legs INTEGER REFERENCES items(id),
+    boots INTEGER REFERENCES items(id),
+    gloves INTEGER REFERENCES items(id),
+    weapon_main INTEGER REFERENCES items(id),
+    weapon_off INTEGER REFERENCES items(id),
+    accessory1 INTEGER REFERENCES items(id),
+    accessory2 INTEGER REFERENCES items(id),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Compétences
+CREATE TABLE skills (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(60) NOT NULL UNIQUE,
+    description TEXT,
+    class_restriction SMALLINT REFERENCES character_classes(id) ON DELETE SET NULL,
+    base_cooldown INTEGER DEFAULT 0,
+    base_cost INTEGER DEFAULT 0,
+    scaling JSONB DEFAULT '{}',
+    icon VARCHAR(100),
+    CONSTRAINT skills_scaling_valid CHECK (jsonb_typeof(scaling) = 'object')
+);
+
+CREATE TABLE character_skills (
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    skill_id INTEGER NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+    level SMALLINT NOT NULL DEFAULT 1 CHECK (level > 0),
+    cooldown_reduction DECIMAL(5,2) NOT NULL DEFAULT 0.00 CHECK (cooldown_reduction >= 0),
+    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (character_id, skill_id)
+);
+
+-- Talents (arbre)
+CREATE TABLE talents_tree (
+    id SERIAL PRIMARY KEY,
+    class_id SMALLINT REFERENCES character_classes(id) ON DELETE CASCADE,
+    name VARCHAR(80) NOT NULL,
+    tier SMALLINT NOT NULL DEFAULT 1 CHECK (tier > 0),
+    effect JSONB NOT NULL DEFAULT '{}',
+    prereq_id INTEGER REFERENCES talents_tree(id) ON DELETE SET NULL,
+    CONSTRAINT talents_effect_valid CHECK (jsonb_typeof(effect) = 'object')
+);
+
+CREATE TABLE character_talents (
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    talent_id INTEGER NOT NULL REFERENCES talents_tree(id) ON DELETE CASCADE,
+    points_spent SMALLINT NOT NULL DEFAULT 0 CHECK (points_spent >= 0),
+    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (character_id, talent_id)
+);
+
+-- Familiers
+CREATE TABLE familiars (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(60) NOT NULL UNIQUE,
+    description TEXT,
+    base_stats JSONB DEFAULT '{}',
+    rarity_id SMALLINT REFERENCES rarities(id),
+    icon VARCHAR(100),
+    CONSTRAINT familiars_base_stats_valid CHECK (jsonb_typeof(base_stats) = 'object')
+);
+
+CREATE TABLE character_familiars (
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    familiar_id INTEGER NOT NULL REFERENCES familiars(id) ON DELETE CASCADE,
+    level SMALLINT NOT NULL DEFAULT 1 CHECK (level > 0),
+    exp INTEGER NOT NULL DEFAULT 0 CHECK (exp >= 0),
+    bond_level SMALLINT NOT NULL DEFAULT 0 CHECK (bond_level >= 0),
+    PRIMARY KEY (character_id, familiar_id)
+);
+
+-- Biomes
+CREATE TABLE biomes (
+    id SMALLSERIAL PRIMARY KEY,
+    name VARCHAR(60) NOT NULL UNIQUE,
+    description TEXT,
+    climate_type VARCHAR(30),
+    modifiers JSONB DEFAULT '{}',
+    CONSTRAINT biomes_modifiers_valid CHECK (jsonb_typeof(modifiers) = 'object')
+);
+
+-- Rattacher les biomes aux donjons
+ALTER TABLE dungeons ADD COLUMN IF NOT EXISTS biome_id SMALLINT REFERENCES biomes(id);
+
+-- Composition des donjons & récompenses
+CREATE TABLE dungeon_enemies (
+    dungeon_id SMALLINT NOT NULL REFERENCES dungeons(id) ON DELETE CASCADE,
+    enemy_id INTEGER NOT NULL REFERENCES enemies(id) ON DELETE CASCADE,
+    spawn_rate DECIMAL(5,2) NOT NULL DEFAULT 10.00 CHECK (spawn_rate >= 0),
+    min_group SMALLINT NOT NULL DEFAULT 1 CHECK (min_group > 0),
+    max_group SMALLINT NOT NULL DEFAULT 1 CHECK (max_group >= min_group),
+    PRIMARY KEY (dungeon_id, enemy_id)
+);
+
+CREATE TABLE dungeon_rewards (
+    dungeon_id SMALLINT NOT NULL REFERENCES dungeons(id) ON DELETE CASCADE,
+    item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    drop_chance DECIMAL(5,4) NOT NULL DEFAULT 0.1000 CHECK (drop_chance >= 0 AND drop_chance <= 1),
+    quantity_min SMALLINT NOT NULL DEFAULT 1 CHECK (quantity_min > 0),
+    quantity_max SMALLINT NOT NULL DEFAULT 1 CHECK (quantity_max >= quantity_min),
+    currency_range JSONB DEFAULT '{"gold_min":0, "gold_max":0}',
+    CONSTRAINT dungeon_rewards_currency_valid CHECK (jsonb_typeof(currency_range) = 'object'),
+    PRIMARY KEY (dungeon_id, item_id)
+);
+
+-- Événements monde
+CREATE TABLE world_events (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(80) NOT NULL,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('raid','boss','invasion')),
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP,
+    rewards JSONB DEFAULT '[]',
+    CONSTRAINT world_events_rewards_valid CHECK (jsonb_typeof(rewards) = 'array')
+);
+
+-- Archétypes & loots ennemis
+CREATE TABLE enemy_archetypes (
+    id SMALLSERIAL PRIMARY KEY,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('melee','ranged','mage','tank','support')),
+    base_behavior JSONB DEFAULT '{}',
+    weaknesses JSONB DEFAULT '[]',
+    resistances JSONB DEFAULT '[]',
+    CONSTRAINT archetypes_base_behavior_valid CHECK (jsonb_typeof(base_behavior) = 'object'),
+    CONSTRAINT archetypes_weak_valid CHECK (jsonb_typeof(weaknesses) = 'array'),
+    CONSTRAINT archetypes_res_valid CHECK (jsonb_typeof(resistances) = 'array')
+);
+
+ALTER TABLE enemies ADD COLUMN IF NOT EXISTS archetype_id SMALLINT REFERENCES enemy_archetypes(id);
+
+CREATE TABLE enemy_loot_tables (
+    enemy_id INTEGER NOT NULL REFERENCES enemies(id) ON DELETE CASCADE,
+    item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    drop_rate DECIMAL(5,4) NOT NULL DEFAULT 0.1000 CHECK (drop_rate >= 0 AND drop_rate <= 1),
+    min_qty SMALLINT NOT NULL DEFAULT 1 CHECK (min_qty > 0),
+    max_qty SMALLINT NOT NULL DEFAULT 1 CHECK (max_qty >= min_qty),
+    currency_min INTEGER NOT NULL DEFAULT 0 CHECK (currency_min >= 0),
+    currency_max INTEGER NOT NULL DEFAULT 0 CHECK (currency_max >= currency_min),
+    PRIMARY KEY (enemy_id, item_id)
+);
+
+-- Sets d'objets et affixes
+CREATE TABLE item_sets (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(80) NOT NULL UNIQUE,
+    description TEXT
+);
+
+CREATE TABLE item_set_members (
+    set_id INTEGER NOT NULL REFERENCES item_sets(id) ON DELETE CASCADE,
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    PRIMARY KEY (set_id, item_id)
+);
+
+CREATE TABLE set_bonuses (
+    set_id INTEGER NOT NULL REFERENCES item_sets(id) ON DELETE CASCADE,
+    pieces_required SMALLINT NOT NULL CHECK (pieces_required > 0),
+    bonus_description TEXT,
+    bonus_stats JSONB DEFAULT '{}',
+    CONSTRAINT set_bonuses_stats_valid CHECK (jsonb_typeof(bonus_stats) = 'object'),
+    PRIMARY KEY (set_id, pieces_required)
+);
+
+CREATE TABLE item_affixes (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(80) NOT NULL UNIQUE,
+    effect_type VARCHAR(40) NOT NULL,
+    min_value DECIMAL(10,2) NOT NULL,
+    max_value DECIMAL(10,2) NOT NULL,
+    rarity_id SMALLINT REFERENCES rarities(id)
+);
+
+CREATE TABLE item_enchantments (
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    affix_id INTEGER NOT NULL REFERENCES item_affixes(id) ON DELETE CASCADE,
+    rolled_value DECIMAL(10,2) NOT NULL,
+    PRIMARY KEY (item_id, affix_id)
+);
+
+CREATE TABLE recipes (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('craft','forge','transmute')),
+    required_items JSONB NOT NULL DEFAULT '[]',
+    result_item INTEGER NOT NULL REFERENCES items(id),
+    craft_time INTEGER NOT NULL DEFAULT 0 CHECK (craft_time >= 0),
+    CONSTRAINT recipes_required_items_valid CHECK (jsonb_typeof(required_items) = 'array')
+);
+
+-- Économie
+CREATE TABLE currencies (
+    id SMALLSERIAL PRIMARY KEY,
+    name VARCHAR(20) NOT NULL UNIQUE,
+    conversion_rate DECIMAL(18,8) NOT NULL DEFAULT 1.0 CHECK (conversion_rate > 0)
+);
+
+CREATE TABLE auctions (
+    id SERIAL PRIMARY KEY,
+    seller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+    price BIGINT NOT NULL CHECK (price >= 0),
+    currency_id SMALLINT NOT NULL REFERENCES currencies(id),
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE transactions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('loot','trade','craft','shop')),
+    currency_id SMALLINT NOT NULL REFERENCES currencies(id),
+    amount BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE shops (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(60) NOT NULL,
+    location VARCHAR(80),
+    inventory JSONB NOT NULL DEFAULT '[]',
+    refresh_timer INTEGER NOT NULL DEFAULT 3600,
+    CONSTRAINT shops_inventory_valid CHECK (jsonb_typeof(inventory) = 'array')
+);
+
+-- Objectifs de quêtes & missions de guilde
+CREATE TABLE quest_objectives (
+    quest_id INTEGER NOT NULL REFERENCES quests(id) ON DELETE CASCADE,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('kill','collect','explore')),
+    target_id INTEGER,
+    required_qty INTEGER NOT NULL DEFAULT 1 CHECK (required_qty > 0),
+    PRIMARY KEY (quest_id, type, target_id)
+);
+
+CREATE TABLE guild_missions (
+    id SERIAL PRIMARY KEY,
+    guild_id INTEGER NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+    objective TEXT NOT NULL,
+    progress JSONB NOT NULL DEFAULT '{"current":0,"required":1}',
+    reward JSONB DEFAULT '{}',
+    CONSTRAINT guild_missions_progress_valid CHECK (jsonb_typeof(progress) = 'object'),
+    CONSTRAINT guild_missions_reward_valid CHECK (jsonb_typeof(reward) = 'object')
+);
+
+-- Social
+CREATE TABLE friends (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    friend_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','blocked')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, friend_id)
+);
+
+CREATE TABLE messages (
+    id SERIAL PRIMARY KEY,
+    sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Saisons & classements
+CREATE TABLE seasons (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(60) NOT NULL,
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
+    rewards_json JSONB DEFAULT '[]',
+    CONSTRAINT seasons_rewards_valid CHECK (jsonb_typeof(rewards_json) = 'array')
+);
+
+CREATE TABLE season_progression (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    season_id INTEGER NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+    tier INTEGER NOT NULL DEFAULT 1 CHECK (tier > 0),
+    exp INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, season_id)
+);
+
+CREATE TABLE leaderboards (
+    id SERIAL PRIMARY KEY,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('dungeon','raid','guild')),
+    season_id INTEGER REFERENCES seasons(id) ON DELETE SET NULL,
+    ref_id INTEGER,
+    score BIGINT NOT NULL DEFAULT 0,
+    rank INTEGER
+);
+
+-- Logs & sécurité
+CREATE TABLE combat_logs (
+    id SERIAL PRIMARY KEY,
+    char_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    dungeon_id SMALLINT REFERENCES dungeons(id) ON DELETE SET NULL,
+    enemy_id INTEGER REFERENCES enemies(id) ON DELETE SET NULL,
+    damage_dealt INTEGER NOT NULL DEFAULT 0,
+    damage_taken INTEGER NOT NULL DEFAULT 0,
+    duration INTEGER NOT NULL DEFAULT 0,
+    result VARCHAR(20) NOT NULL CHECK (result IN ('win','loss','escape')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE anti_cheat_flags (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(40) NOT NULL CHECK (type IN ('xp/min anomaly','gold exploit','suspicious drops')),
+    severity VARCHAR(10) NOT NULL CHECK (severity IN ('low','medium','high','critical')),
+    flagged_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    details JSONB DEFAULT '{}',
+    CONSTRAINT anti_cheat_details_valid CHECK (jsonb_typeof(details) = 'object')
+);
+
+CREATE TABLE audit_trail (
+    id BIGSERIAL PRIMARY KEY,
+    action VARCHAR(60) NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    details JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT audit_trail_details_valid CHECK (jsonb_typeof(details) = 'object')
+);
+
+-- Monétisation
+CREATE TABLE cosmetics (
+    id SERIAL PRIMARY KEY,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('skin','pet','aura')),
+    name VARCHAR(80) NOT NULL,
+    rarity VARCHAR(20) NOT NULL,
+    price_premium_currency BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE shop_rotation (
+    id SERIAL PRIMARY KEY,
+    cosmetic_id INTEGER NOT NULL REFERENCES cosmetics(id) ON DELETE CASCADE,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL
+);
+
+CREATE TABLE purchases (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cosmetic_id INTEGER NOT NULL REFERENCES cosmetics(id) ON DELETE CASCADE,
+    price BIGINT NOT NULL,
+    purchased_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, cosmetic_id, purchased_at)
+);
+
 -- Table des membres de guilde
 CREATE TABLE guild_members (
     id SERIAL PRIMARY KEY,
@@ -396,6 +810,7 @@ CREATE INDEX idx_items_type_id ON items(type_id);
 CREATE INDEX idx_items_rarity_id ON items(rarity_id);
 CREATE INDEX idx_enemies_rarity_id ON enemies(rarity_id);
 CREATE INDEX idx_dungeons_difficulty_id ON dungeons(difficulty_id);
+CREATE INDEX IF NOT EXISTS idx_dungeons_biome_id ON dungeons(biome_id);
 CREATE INDEX IF NOT EXISTS idx_combat_sessions_character_id ON combat_sessions(character_id);
 CREATE INDEX IF NOT EXISTS idx_combat_sessions_created_at ON combat_sessions(created_at);
 
@@ -433,6 +848,23 @@ CREATE INDEX idx_character_inventory_created_at ON character_inventory(created_a
 CREATE INDEX idx_characters_level_experience ON characters(level, experience);
 CREATE INDEX idx_items_level_requirement ON items(level_requirement);
 CREATE INDEX idx_enemies_level_type ON enemies(level, type);
+CREATE INDEX IF NOT EXISTS idx_user_settings_user ON user_settings(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_wallet_user ON user_wallet(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_progression_user ON user_progression(user_id);
+CREATE INDEX IF NOT EXISTS idx_character_stats_id ON character_stats(character_id);
+CREATE INDEX IF NOT EXISTS idx_character_equipment_id ON character_equipment(character_id);
+CREATE INDEX IF NOT EXISTS idx_character_skills ON character_skills(character_id, skill_id);
+CREATE INDEX IF NOT EXISTS idx_character_talents ON character_talents(character_id, talent_id);
+CREATE INDEX IF NOT EXISTS idx_dungeon_enemies ON dungeon_enemies(dungeon_id, enemy_id);
+CREATE INDEX IF NOT EXISTS idx_enemy_loot_tables ON enemy_loot_tables(enemy_id);
+CREATE INDEX IF NOT EXISTS idx_item_enchantments ON item_enchantments(item_id);
+CREATE INDEX IF NOT EXISTS idx_recipes_type ON recipes(type);
+CREATE INDEX IF NOT EXISTS idx_auctions_expires ON auctions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_time ON transactions(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_friends_user ON friends(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_season_progression ON season_progression(user_id, season_id);
+CREATE INDEX IF NOT EXISTS idx_leaderboards_type ON leaderboards(type);
 
 -- =====================================================
 -- TRIGGERS POUR LES TIMESTAMPS
@@ -463,6 +895,45 @@ CREATE TRIGGER update_character_dungeons_updated_at BEFORE UPDATE ON character_d
 CREATE TRIGGER update_character_quests_updated_at BEFORE UPDATE ON character_quests FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_guilds_updated_at BEFORE UPDATE ON guilds FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_guild_members_updated_at BEFORE UPDATE ON guild_members FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_progression_updated_at BEFORE UPDATE ON user_progression FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_wallet_updated_at BEFORE UPDATE ON user_wallet FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_character_stats_updated_at BEFORE UPDATE ON character_stats FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_character_equipment_updated_at BEFORE UPDATE ON character_equipment FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_skills_updated_at BEFORE UPDATE ON skills FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_character_skills_updated_at BEFORE UPDATE ON character_skills FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_talents_tree_updated_at BEFORE UPDATE ON talents_tree FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_character_talents_updated_at BEFORE UPDATE ON character_talents FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_familiars_updated_at BEFORE UPDATE ON familiars FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_character_familiars_updated_at BEFORE UPDATE ON character_familiars FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_biomes_updated_at BEFORE UPDATE ON biomes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_dungeon_enemies_updated_at BEFORE UPDATE ON dungeon_enemies FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_dungeon_rewards_updated_at BEFORE UPDATE ON dungeon_rewards FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_world_events_updated_at BEFORE UPDATE ON world_events FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_enemy_archetypes_updated_at BEFORE UPDATE ON enemy_archetypes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_enemy_loot_tables_updated_at BEFORE UPDATE ON enemy_loot_tables FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_item_sets_updated_at BEFORE UPDATE ON item_sets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_set_bonuses_updated_at BEFORE UPDATE ON set_bonuses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_item_affixes_updated_at BEFORE UPDATE ON item_affixes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_item_enchantments_updated_at BEFORE UPDATE ON item_enchantments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_recipes_updated_at BEFORE UPDATE ON recipes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_currencies_updated_at BEFORE UPDATE ON currencies FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_auctions_updated_at BEFORE UPDATE ON auctions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_shops_updated_at BEFORE UPDATE ON shops FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_quest_objectives_updated_at BEFORE UPDATE ON quest_objectives FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_guild_missions_updated_at BEFORE UPDATE ON guild_missions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_friends_updated_at BEFORE UPDATE ON friends FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_messages_updated_at BEFORE UPDATE ON messages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_seasons_updated_at BEFORE UPDATE ON seasons FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_season_progression_updated_at BEFORE UPDATE ON season_progression FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_leaderboards_updated_at BEFORE UPDATE ON leaderboards FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_combat_logs_updated_at BEFORE UPDATE ON combat_logs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_anti_cheat_flags_updated_at BEFORE UPDATE ON anti_cheat_flags FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_audit_trail_updated_at BEFORE UPDATE ON audit_trail FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_cosmetics_updated_at BEFORE UPDATE ON cosmetics FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_shop_rotation_updated_at BEFORE UPDATE ON shop_rotation FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_purchases_updated_at BEFORE UPDATE ON purchases FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
 -- VUES OPTIMISÉES POUR LES REQUÊTES FRÉQUENTES
