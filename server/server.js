@@ -13,6 +13,8 @@ const CacheService = require('./services/CacheService');
 const QuestSystem = require('./systems/quests');
 const WebSocketManager = require('./websocket/WebSocketManager');
 const RotationService = require('./services/RotationService');
+const MailService = require('./services/MailService');
+const CharacterProvisioningService = require('./services/CharacterProvisioningService');
 
 // Routes optimisées
 const optimizedCharacterRoutes = require('./routes/optimized-characters');
@@ -32,6 +34,8 @@ let cacheService;
 let systems;
 let wsManager;
 let rotationService;
+let mailService;
+let characterProvisioning;
 
 // =====================================================
 // MIDDLEWARE DE SÉCURITÉ ET PERFORMANCE
@@ -254,6 +258,107 @@ app.use('/api/systems', systemsRoutes);
 // =====================================================
 // ROUTES D'AUTHENTIFICATION (BASIQUES)
 // =====================================================
+// Demander un code de connexion par email
+app.post('/api/auth/request-email-code', async (req, res) => {
+  try {
+    const { email, username } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Email requis' });
+
+    const userRes = await dataService.pool.query('SELECT id, email FROM users WHERE email = $1', [email]);
+    const purpose = userRes.rows.length > 0 ? 'login' : 'register';
+
+    // Générer un code 6 chiffres
+    const code = (Math.floor(100000 + Math.random() * 900000)).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+    await dataService.pool.query(
+      `INSERT INTO auth_codes (email, code, purpose, expires_at) VALUES ($1,$2,$3,$4)`,
+      [email, code, purpose, expiresAt]
+    );
+
+    let mailSent = false;
+    try {
+      await mailService.sendVerificationCode(email, code);
+      mailSent = true;
+    } catch (e) {
+      console.warn('Mail send failed:', e.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      purpose,
+      email,
+      ...(process.env.NODE_ENV !== 'production' ? { code, mailSent } : { mailSent })
+    });
+  } catch (e) {
+    console.error('❌ request-email-code error:', e);
+    return res.status(500).json({ error: 'Erreur lors de la demande de code' });
+  }
+});
+
+// Vérifier le code et connecter / créer l'utilisateur + personnage
+app.post('/api/auth/verify-email', async (req, res) => {
+  try {
+    const { email, code, username, characterName, className } = req.body || {};
+    if (!email || !code) return res.status(400).json({ error: 'Email et code requis' });
+
+    // Récupérer code valide
+    const codeRes = await dataService.pool.query(
+      `SELECT * FROM auth_codes WHERE email = $1 AND code = $2 AND consumed_at IS NULL AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1`,
+      [email, code]
+    );
+    if (codeRes.rows.length === 0) return res.status(401).json({ error: 'Code invalide ou expiré' });
+    const authCode = codeRes.rows[0];
+
+    // Marquer comme consommé
+    await dataService.pool.query('UPDATE auth_codes SET consumed_at = NOW() WHERE id = $1', [authCode.id]);
+
+    // Trouver ou créer utilisateur
+    let user;
+    const u = await dataService.pool.query('SELECT id, username, email, is_email_verified FROM users WHERE email = $1', [email]);
+    if (u.rows.length === 0) {
+      const bcrypt = require('bcryptjs');
+      const randomPass = await bcrypt.hash('email-code-' + Date.now() + '-' + Math.random(), 10);
+      const uname = username && username.length >= 3 ? username : `user_${Math.random().toString(36).slice(2, 8)}`;
+      const created = await dataService.pool.query(
+        `INSERT INTO users (username, email, password_hash, is_email_verified, email_verified_at)
+         VALUES ($1,$2,$3,true,NOW()) RETURNING id, username, email`,
+        [uname, email, randomPass]
+      );
+      user = created.rows[0];
+    } else {
+      user = u.rows[0];
+      if (!user.is_email_verified) {
+        await dataService.pool.query('UPDATE users SET is_email_verified = true, email_verified_at = NOW() WHERE id = $1', [user.id]);
+      }
+    }
+
+    // Provisionner le personnage s'il n'existe pas
+    const charRes = await dataService.pool.query('SELECT id, name, level FROM characters WHERE user_id = $1', [user.id]);
+    let character = charRes.rows[0];
+    if (!character) {
+      character = await characterProvisioning.provisionCharacterForUser(user.id, { characterName, className });
+    }
+
+    // Créer token
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      process.env.JWT_SECRET || 'eterna_secret_key',
+      { expiresIn: '24h' }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Connexion réussie',
+      token,
+      user: { id: user.id, username: user.username, email },
+      character
+    });
+  } catch (e) {
+    console.error('❌ verify-email error:', e);
+    return res.status(500).json({ error: 'Erreur lors de la vérification' });
+  }
+});
 
 // Inscription (version simplifiée pour la démo)
 app.post('/api/auth/register', async (req, res) => {
@@ -617,10 +722,15 @@ async function startServer() {
     rotationService = new RotationService(dataService, cacheService, systems.get('quests'));
     systems.set('rotations', rotationService);
     
+    // Mail & Provisioning services
+    mailService = new MailService();
+    characterProvisioning = new CharacterProvisioningService(dataService.pool);
+    
     // Injecter les services dans le middleware après initialisation
     app.use((req, res, next) => {
       req.dataService = dataService;
       req.cacheService = cacheService;
+      req.mailService = mailService;
       next();
     });
     

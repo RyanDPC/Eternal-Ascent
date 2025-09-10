@@ -124,11 +124,28 @@ CREATE TABLE users (
     username VARCHAR(30) NOT NULL UNIQUE CHECK (length(username) >= 3 AND length(username) <= 30),
     email VARCHAR(100) NOT NULL UNIQUE CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
     password_hash VARCHAR(255) NOT NULL,
+    is_email_verified BOOLEAN NOT NULL DEFAULT false,
+    email_verified_at TIMESTAMP,
     last_login TIMESTAMP,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Table des codes d'authentification par email (passwordless / vérification)
+CREATE TABLE IF NOT EXISTS auth_codes (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(100) NOT NULL,
+    code VARCHAR(10) NOT NULL,
+    purpose VARCHAR(20) NOT NULL CHECK (purpose IN ('register','login','verify')),
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP,
+    attempts SMALLINT NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_codes(email);
+CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_codes(expires_at);
 
 -- Table des personnages (ultra-optimisée)
 CREATE TABLE characters (

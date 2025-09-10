@@ -512,6 +512,21 @@ class Seeder {
   async run() {
     try {
       console.log('🌱 Seeding complet démarré...');
+      // Ensure auth tables exist for email verification
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS auth_codes (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(100) NOT NULL,
+          code VARCHAR(10) NOT NULL,
+          purpose VARCHAR(20) NOT NULL CHECK (purpose IN ('register','login','verify')),
+          expires_at TIMESTAMP NOT NULL,
+          consumed_at TIMESTAMP,
+          attempts SMALLINT NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await this.query(`ALTER TABLE IF NOT EXISTS users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN NOT NULL DEFAULT false`);
+      await this.query(`ALTER TABLE IF NOT EXISTS users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP`);
       await this.seedRarities();
       await this.seedItemTypes();
       await this.seedItems();
