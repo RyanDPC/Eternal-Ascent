@@ -1,0 +1,21 @@
+### Request email code (dev shows code in response)
+POST http://localhost:3001/api/auth/request-email-code
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "username": "{{username}}"
+}
+
+### Verify email with code
+POST http://localhost:3001/api/auth/verify-email
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "code": "{{code}}",
+  "username": "{{username}}",
+  "characterName": "Hero_{{username}}",
+  "className": "warrior"
+}
+

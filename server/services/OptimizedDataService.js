@@ -705,6 +705,38 @@ class OptimizedDataService {
       await this.pool.query('ALTER TABLE characters ALTER COLUMN critical_damage TYPE DECIMAL(6,2)');
       console.log('✅ Column critical_damage altered to DECIMAL(6,2)');
     }
+
+    // Ensure users has email verification columns
+    const userCols = await this.pool.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users'
+    `);
+    const hasIsVerified = userCols.rows.some(r => r.column_name === 'is_email_verified');
+    const hasVerifiedAt = userCols.rows.some(r => r.column_name === 'email_verified_at');
+    if (!hasIsVerified) {
+      console.log('🛠️ Adding users.is_email_verified ...');
+      await this.pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN NOT NULL DEFAULT false`);
+    }
+    if (!hasVerifiedAt) {
+      console.log('🛠️ Adding users.email_verified_at ...');
+      await this.pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP`);
+    }
+
+    // Ensure auth_codes table exists
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS auth_codes (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(100) NOT NULL,
+        code VARCHAR(10) NOT NULL,
+        purpose VARCHAR(20) NOT NULL CHECK (purpose IN ('register','login','verify')),
+        expires_at TIMESTAMP NOT NULL,
+        consumed_at TIMESTAMP,
+        attempts SMALLINT NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_codes(email)`);
+    await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_codes(expires_at)`);
   }
 
   /**
