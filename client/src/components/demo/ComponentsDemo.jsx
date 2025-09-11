@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AuthProvider } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { 
   Settings, 
@@ -141,6 +142,7 @@ const ComponentsDemo = () => {
   };
 
   return (
+    <AuthProvider>
     <div className="components-demo">
       <motion.div className="demo-header" 
         initial={{ opacity: 0, y: -20 }}
@@ -195,6 +197,7 @@ const ComponentsDemo = () => {
         </div>
       </motion.div>
     </div>
+    </AuthProvider>
   );
 };
 

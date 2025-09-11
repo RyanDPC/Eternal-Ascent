@@ -111,22 +111,23 @@ async function seedItemTypes(pool) {
     console.log('🗑️ Cleared existing item types');
     
     const itemTypes = [
-      { name: 'weapon', display_name: 'Arme', category: 'weapon', max_stack: 1, description: 'Armes de combat' },
-      { name: 'armor', display_name: 'Armure', category: 'armor', max_stack: 1, description: 'Protection corporelle' },
-      { name: 'consumable', display_name: 'Consommable', category: 'consumable', max_stack: 99, description: 'Objets à usage unique' },
-      { name: 'material', display_name: 'Matériau', category: 'material', max_stack: 999, description: 'Matériaux de craft' },
-      { name: 'currency', display_name: 'Monnaie', category: 'currency', max_stack: 999999, description: 'Monnaies du jeu' },
-      { name: 'special', display_name: 'Spécial', category: 'special', max_stack: 1, description: 'Objets spéciaux' }
+      { name: 'weapon', display_name: 'Arme', category: 'weapon', equip_slot: 'weapon', max_stack: 1, description: 'Armes de combat' },
+      { name: 'armor', display_name: 'Armure', category: 'armor', equip_slot: 'chest', max_stack: 1, description: 'Protection corporelle' },
+      { name: 'consumable', display_name: 'Consommable', category: 'consumable', equip_slot: null, max_stack: 99, description: 'Objets à usage unique' },
+      { name: 'material', display_name: 'Matériau', category: 'material', equip_slot: null, max_stack: 999, description: 'Matériaux de craft' },
+      { name: 'currency', display_name: 'Monnaie', category: 'currency', equip_slot: null, max_stack: 999999, description: 'Monnaies du jeu' },
+      { name: 'special', display_name: 'Spécial', category: 'special', equip_slot: null, max_stack: 1, description: 'Objets spéciaux' }
     ];
     
     for (const itemType of itemTypes) {
       await pool.query(`
-        INSERT INTO item_types (name, display_name, category, max_stack, description)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO item_types (name, display_name, category, equip_slot, max_stack, description)
+        VALUES ($1, $2, $3, $4, $5, $6)
       `, [
         itemType.name,
         itemType.display_name,
         itemType.category,
+        itemType.equip_slot,
         itemType.max_stack,
         itemType.description
       ]);
@@ -471,18 +472,25 @@ async function seedQuests(pool) {
     console.log('🗑️ Cleared existing quests');
     
     const questsData = quests;
+    const allowedTypes = new Set(['main','side','daily','weekly','guild','event']);
     
     for (const quest of questsData) {
+      const requirements = Array.isArray(quest.requirements)
+        ? quest.requirements
+        : (quest.requirements ? [quest.requirements] : []);
+      const rewards = Array.isArray(quest.rewards)
+        ? quest.rewards
+        : (quest.rewards ? [quest.rewards] : []);
       await pool.query(`
         INSERT INTO quests (title, description, type, level_requirement, rewards, requirements, objectives, icon)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `, [
         quest.title,
         quest.description,
-        quest.type,
+        allowedTypes.has(quest.type) ? quest.type : 'side',
         quest.level_requirement || 1,
-        JSON.stringify(quest.rewards || []),
-        JSON.stringify(quest.requirements || []),
+        JSON.stringify(rewards),
+        JSON.stringify(requirements),
         JSON.stringify(Array.isArray(quest.objectives) ? quest.objectives : []),
         quest.icon
       ]);

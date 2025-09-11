@@ -1,5 +1,5 @@
 // Settings Components
-export { default as Settings } from './settings';
+export { default as Settings } from './settings/Settings';
 export { default as ToggleSwitch } from './settings/ToggleSwitch';
 export { default as ThemeToggle } from './settings/ThemeToggle';
 export { default as SettingsDemo } from './settings/SettingsDemo';

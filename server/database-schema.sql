@@ -267,6 +267,16 @@ CREATE TABLE skills (
     CONSTRAINT skills_effects_valid CHECK (jsonb_typeof(effects) = 'array')
 );
 
+-- Table des compétences apprises par personnage (manquante)
+CREATE TABLE IF NOT EXISTS character_skills (
+    character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    skill_id INTEGER NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+    level SMALLINT NOT NULL DEFAULT 1 CHECK (level > 0),
+    learned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    upgraded_at TIMESTAMP,
+    PRIMARY KEY (character_id, skill_id)
+);
+
 -- Table des donjons (optimisée)
 CREATE TABLE dungeons (
     id SMALLSERIAL PRIMARY KEY,
@@ -533,7 +543,7 @@ CREATE TRIGGER update_skills_updated_at BEFORE UPDATE ON skills FOR EACH ROW EXE
 -- =====================================================
 
 -- Fonction pour calculer les stats d'un personnage avec équipement
-CREATE OR REPLACE FUNCTION calculate_character_stats(character_id INTEGER)
+CREATE OR REPLACE FUNCTION calculate_character_stats(p_character_id INTEGER)
 RETURNS JSONB AS $$
 DECLARE
     char_stats JSONB;
@@ -543,13 +553,13 @@ DECLARE
     item_stats JSONB;
 BEGIN
     -- Récupérer les stats de base du personnage
-    SELECT stats INTO char_stats FROM characters WHERE id = character_id;
+    SELECT stats INTO char_stats FROM characters WHERE id = p_character_id;
     
     -- Récupérer les stats de base de la classe
     SELECT cc.base_stats INTO base_stats 
     FROM characters c 
     JOIN character_classes cc ON c.class_id = cc.id 
-    WHERE c.id = character_id;
+    WHERE c.id = p_character_id;
     
     -- Calculer les bonus d'équipement
     SELECT jsonb_object_agg(key, value) INTO equipment_bonus
@@ -558,7 +568,7 @@ BEGIN
         FROM character_inventory ci
         JOIN items i ON ci.item_id = i.id
         CROSS JOIN LATERAL jsonb_each_text(i.base_stats)
-        WHERE ci.character_id = character_id AND ci.equipped = true
+        WHERE ci.character_id = p_character_id AND ci.equipped = true
         GROUP BY key
     ) equipment;
     
