@@ -106,6 +106,28 @@ class ApiService {
     }
   }
 
+  // ===== ACTIVITÉ =====
+  async getRecentActivity(limit = 10) {
+    try {
+      return await this.authenticatedRequest(`/activity/recent?limit=${encodeURIComponent(limit)}`);
+    } catch (error) {
+      console.error('Erreur lors du chargement de l\'activité récente:', error);
+      throw error;
+    }
+  }
+
+  async logActivity({ type, description, metadata }) {
+    try {
+      return await this.authenticatedRequest('/activity/log', {
+        method: 'POST',
+        body: JSON.stringify({ type, description, metadata })
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement d\'activité:', error);
+      throw error;
+    }
+  }
+
   async getDungeonsPageData() {
     try {
       return await this.authenticatedRequest('/static/dungeons');

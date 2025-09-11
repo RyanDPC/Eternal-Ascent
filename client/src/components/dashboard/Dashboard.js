@@ -30,6 +30,7 @@ const OptimizedDashboardV2 = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [recentActivity, setRecentActivity] = useState([]);
   
   useEffect(() => {
     if (authCharacter) {
@@ -47,6 +48,12 @@ const OptimizedDashboardV2 = () => {
       setLoading(true);
       const response = await optimizedApiService.getDashboardData();
       setData(response);
+      try {
+        const act = await optimizedApiService.getRecentActivity(10);
+        setRecentActivity(Array.isArray(act.events) ? act.events : []);
+      } catch (e) {
+        console.warn('Activité récente indisponible:', e.message);
+      }
     } catch (err) {
       console.error('Erreur lors du chargement des données:', err);
       setError('Erreur lors du chargement des données');
@@ -238,27 +245,23 @@ const OptimizedDashboardV2 = () => {
               <div className="recent-activity">
                 <h3>Activité récente</h3>
                 <div className="activity-list">
-                  <div className="activity-item">
-                    <Activity className="activity-icon" />
-                    <div className="activity-content">
-                      <p>Personnage créé</p>
-                      <span>Il y a 2 heures</span>
+                  {(recentActivity && recentActivity.length > 0) ? recentActivity.map(ev => (
+                    <div key={ev.id} className="activity-item">
+                      <Activity className="activity-icon" />
+                      <div className="activity-content">
+                        <p>{ev.description || ev.type}</p>
+                        <span>{new Date(ev.created_at).toLocaleString()}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="activity-item">
-                    <Award className="activity-icon" />
-                    <div className="activity-content">
-                      <p>Premier succès débloqué</p>
-                      <span>Il y a 1 heure</span>
+                  )) : (
+                    <div className="activity-item">
+                      <Clock className="activity-icon" />
+                      <div className="activity-content">
+                        <p>Aucune activité récente</p>
+                        <span>-</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="activity-item">
-                    <Clock className="activity-icon" />
-                    <div className="activity-content">
-                      <p>Dernière connexion</p>
-                      <span>Maintenant</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </motion.div>

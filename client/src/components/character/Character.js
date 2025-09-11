@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/apiService';
+import databaseService from '../../services/databaseService';
 import CharacterOverview from './overview/CharacterOverview';
 import CharacterInventory from './inventory/CharacterInventory';
 import SkillTree from './skills/SkillTree';
@@ -93,8 +94,8 @@ const Character = () => {
     try {
       if (user && user.id) {
         const characterId = character?.id || user?.character?.id;
-        const stats = await databaseService.getCharacterStats(characterId);
-        const final = stats.calculated || stats;
+        const statsResp = await databaseService.getCharacterStats(characterId);
+        const final = statsResp.final_stats || statsResp.stats?.calculated || statsResp.calculated || statsResp;
         setFinalStats(final);
         setCharacter(prev => ({ ...prev }));
       }
@@ -108,8 +109,9 @@ const Character = () => {
     try {
       setInventoryLoading(true);
       if (user && user.id) {
-        const inventoryData = await databaseService.getCharacterInventory(user.id);
-        processInventoryData(inventoryData);
+        const invResp = await databaseService.getInventory(user.id);
+        const items = invResp.inventory || invResp;
+        processInventoryData(items);
       }
     } catch (err) {
       console.error('Erreur lors du chargement de l\'inventaire:', err);
@@ -240,7 +242,7 @@ const Character = () => {
 
       const item = equipment[slotType];
       if (item) {
-        await databaseService.unequipItem((character?.id || user?.character?.id), slotType);
+        await databaseService.unequipItem((character?.id || user?.character?.id), item.id);
         
         setInventory(prev => [...prev, item]);
         setEquipment(prev => ({
