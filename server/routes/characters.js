@@ -473,6 +473,46 @@ router.put('/:id/equip', validateCharacterId, injectDataService, async (req, res
   }
 });
 
+// Supporter aussi la méthode POST pour compat frontend
+router.post('/:id/equip', validateCharacterId, injectDataService, async (req, res) => {
+  try {
+    const { item_id, slot } = req.body;
+    
+    if (!item_id || !slot) {
+      return res.status(400).json({ error: 'item_id et slot requis' });
+    }
+
+    const inventory = await req.dataService.getCharacterInventory(req.characterId, false);
+    const item = inventory.find(i => i.item_id === item_id);
+    
+    if (!item) {
+      return res.status(404).json({ error: 'Objet non trouvé dans l\'inventaire' });
+    }
+
+    const equippedItem = await req.dataService.equipItem(req.characterId, item_id, slot);
+    
+    res.json({
+      success: true,
+      message: 'Objet équipé avec succès',
+      equipped_item: {
+        id: equippedItem.id,
+        item_id: equippedItem.item_id,
+        equipped: equippedItem.equipped,
+        equipped_slot: equippedItem.equipped_slot
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error equipping item (POST):', error);
+    if (error.message.includes('Contraintes d\'équipement')) {
+      res.status(400).json({ error: error.message });
+    } else if (error.message.includes('non trouvé')) {
+      res.status(404).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: 'Erreur interne du serveur' });
+    }
+  }
+});
+
 /**
  * PUT /api/characters/:id/unequip
  * Déséquipe un objet
@@ -514,6 +554,174 @@ router.put('/:id/unequip', validateCharacterId, injectDataService, async (req, r
     }
   } catch (error) {
     console.error('❌ Error unequipping item:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+// Supporter aussi la méthode POST pour compat frontend
+router.post('/:id/unequip', validateCharacterId, injectDataService, async (req, res) => {
+  try {
+    const { item_id } = req.body;
+    
+    if (!item_id) {
+      return res.status(400).json({ error: 'item_id requis' });
+    }
+
+    const client = await req.dataService.pool.connect();
+    try {
+      const result = await client.query(
+        'UPDATE character_inventory SET equipped = false, equipped_slot = NULL WHERE character_id = $1 AND item_id = $2 RETURNING *',
+        [req.characterId, item_id]
+      );
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Objet non trouvé ou non équipé' });
+      }
+      
+      await req.dataService.cache.invalidateCharacterCache(req.characterId);
+      
+      res.json({
+        success: true,
+        message: 'Objet déséquipé avec succès',
+        unequipped_item: {
+          id: result.rows[0].id,
+          item_id: result.rows[0].item_id,
+          equipped: result.rows[0].equipped,
+          equipped_slot: result.rows[0].equipped_slot
+        }
+      });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('❌ Error unequipping item (POST):', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+// Alias compatible: ajouter de l'expérience (même logique que level-up)
+router.post('/:id/add-experience', validateCharacterId, injectDataService, async (req, res) => {
+  try {
+    const { experience } = req.body;
+    if (!experience || experience <= 0) {
+      return res.status(400).json({ error: 'Expérience invalide' });
+    }
+
+    const character = await req.dataService.getCharacter(req.characterId, false);
+    if (!character) {
+      return res.status(404).json({ error: 'Personnage non trouvé' });
+    }
+
+    let newXP = character.experience + experience;
+    let newLevel = character.level;
+    let newXPToNext = character.experience_to_next;
+    let levelUp = false;
+    let levelsGained = 0;
+
+    while (newXP >= newXPToNext) {
+      newXP -= newXPToNext;
+      newLevel++;
+      levelsGained++;
+      newXPToNext = Math.floor(newXPToNext * (1.3 + (newLevel * 0.05)));
+      levelUp = true;
+    }
+
+    const statsMultiplier = 1 + (levelsGained * 0.1);
+    const newHealth = Math.floor(character.max_health * statsMultiplier);
+    const newMana = Math.floor(character.max_mana * statsMultiplier);
+    const newAttack = Math.floor(character.attack * statsMultiplier);
+    const newDefense = Math.floor(character.defense * statsMultiplier);
+    const newMagicAttack = Math.floor(character.magic_attack * statsMultiplier);
+    const newMagicDefense = Math.floor(character.magic_defense * statsMultiplier);
+
+    await req.dataService.executePrepared('update_character_stats', [
+      newLevel, newXP, newXPToNext,
+      newHealth, newHealth, newMana, newMana,
+      newAttack, newDefense, newMagicAttack, newMagicDefense,
+      req.characterId
+    ]);
+
+    res.json({
+      success: true,
+      level_up: levelUp,
+      levels_gained: levelsGained,
+      new_level: newLevel,
+      new_xp: newXP,
+      new_xp_to_next: newXPToNext,
+      new_health: newHealth,
+      new_max_health: newHealth,
+      new_mana: newMana,
+      new_max_mana: newMana,
+      new_attack: newAttack,
+      new_defense: newDefense,
+      new_magic_attack: newMagicAttack,
+      new_magic_defense: newMagicDefense
+    });
+  } catch (error) {
+    console.error('❌ Error adding experience:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
+  }
+});
+
+// Alias: corriger l'expérience excédentaire (monter de niveau sans ajouter d'XP)
+router.post('/:id/fix-experience', validateCharacterId, injectDataService, async (req, res) => {
+  try {
+    const character = await req.dataService.getCharacter(req.characterId, false);
+    if (!character) {
+      return res.status(404).json({ error: 'Personnage non trouvé' });
+    }
+
+    let newXP = character.experience;
+    let newLevel = character.level;
+    let newXPToNext = character.experience_to_next;
+    let levelUp = false;
+    let levelsGained = 0;
+
+    while (newXP >= newXPToNext) {
+      newXP -= newXPToNext;
+      newLevel++;
+      levelsGained++;
+      newXPToNext = Math.floor(newXPToNext * (1.3 + (newLevel * 0.05)));
+      levelUp = true;
+    }
+
+    if (!levelUp) {
+      return res.json({ success: true, level_up: false, message: 'Aucune correction nécessaire' });
+    }
+
+    const statsMultiplier = 1 + (levelsGained * 0.1);
+    const newHealth = Math.floor(character.max_health * statsMultiplier);
+    const newMana = Math.floor(character.max_mana * statsMultiplier);
+    const newAttack = Math.floor(character.attack * statsMultiplier);
+    const newDefense = Math.floor(character.defense * statsMultiplier);
+    const newMagicAttack = Math.floor(character.magic_attack * statsMultiplier);
+    const newMagicDefense = Math.floor(character.magic_defense * statsMultiplier);
+
+    await req.dataService.executePrepared('update_character_stats', [
+      newLevel, newXP, newXPToNext,
+      newHealth, newHealth, newMana, newMana,
+      newAttack, newDefense, newMagicAttack, newMagicDefense,
+      req.characterId
+    ]);
+
+    res.json({
+      success: true,
+      level_up: true,
+      levels_gained: levelsGained,
+      new_level: newLevel,
+      new_xp: newXP,
+      new_xp_to_next: newXPToNext,
+      new_health: newHealth,
+      new_max_health: newHealth,
+      new_mana: newMana,
+      new_max_mana: newMana,
+      new_attack: newAttack,
+      new_defense: newDefense,
+      new_magic_attack: newMagicAttack,
+      new_magic_defense: newMagicDefense
+    });
+  } catch (error) {
+    console.error('❌ Error fixing experience:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 });

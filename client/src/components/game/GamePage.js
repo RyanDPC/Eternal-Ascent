@@ -480,7 +480,7 @@ const GamePage = () => {
     try {
       if (updatedPlayer.id) {
         // Vérifier si le serveur est disponible
-        const response = await fetch('http://localhost:3001/api/health', { 
+        const response = await fetch('/api/health', { 
           method: 'GET',
           timeout: 1000 
         }).catch(() => null);

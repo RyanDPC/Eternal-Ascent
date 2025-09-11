@@ -311,7 +311,7 @@ const CharacterOverview = ({
                         const response = await fetch(`/api/characters/${character.id}/fix-experience`, {
                           method: 'POST',
                           headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
                           }
                         });
                         
