@@ -929,39 +929,7 @@ app.post('/api/guilds/generate-dynamic', requireAuth, async (req, res) => {
   return res.json({ success: true, guilds: out });
 });
 
-// =====================================================
-// ROUTES POUR LES TALENTS
-// =====================================================
-
-// Récupérer tous les arbres de talents
-app.get('/api/talents/trees', async (req, res) => {
-  try {
-    const talentsData = require('./data/sid/talents');
-    const trees = talentsData.getTalentTrees();
-    res.json({ success: true, trees });
-  } catch (error) {
-    console.error('❌ Erreur lors de la récupération des arbres de talents:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération des arbres de talents' });
-  }
-});
-
-// Récupérer l'arbre de talents par classe
-app.get('/api/talents/trees/:className', async (req, res) => {
-  try {
-    const { className } = req.params;
-    const talentsData = require('./data/sid/talents');
-    const tree = talentsData.getTalentTreeByClass(className);
-    
-    if (!tree) {
-      return res.status(404).json({ error: 'Arbre de talents non trouvé pour cette classe' });
-    }
-    
-    res.json({ success: true, tree });
-  } catch (error) {
-    console.error('❌ Erreur lors de la récupération de l\'arbre de talents:', error);
-    res.status(500).json({ error: 'Erreur lors de la récupération de l\'arbre de talents' });
-  }
-});
+// (Routes talents fournies par `routes/talents`)
 
 // =====================================================
 // ROUTES DE FALLBACK ET GESTION D'ERREURS

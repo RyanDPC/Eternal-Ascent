@@ -33,8 +33,8 @@ async function run() {
     // 1. Reset de la base de données (schéma + vues)
     await runScript('reset.js');
     
-    // 2. Seed des données
-    await runScript('seed-all.js');
+    // 2. Seed des données (DB-only, idempotent)
+    await runScript('seed.js');
     
     console.log('🎉 Database reset and seeding completed successfully!');
     

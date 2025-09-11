@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
-const talentsData = require('../data/sid/talents');
 
 // Middleware d'authentification
 const authenticateToken = (req, res, next) => {
@@ -46,7 +45,11 @@ router.get('/classes', injectCacheService, async (req, res) => {
       () => req.cacheService.getStaticData('character_classes'),
       async () => {
         try {
-          const result = await req.app.locals.dataService.pool.query('SELECT * FROM character_classes');
+          const result = await req.app.locals.dataService.pool.query(`
+            SELECT cc.*, r.name as rarity_name
+            FROM character_classes cc
+            JOIN rarities r ON cc.rarity_id = r.id
+          `);
           return result.rows;
         } catch (_) { return null; }
       }
@@ -64,7 +67,7 @@ router.get('/classes', injectCacheService, async (req, res) => {
         name: cls.name,
         display_name: cls.display_name,
         description: cls.description,
-        rarity: cls.rarity,
+        rarity: cls.rarity_name,
         probability: cls.probability,
         base_stats: cls.base_stats,
         stat_ranges: cls.stat_ranges,
@@ -91,7 +94,7 @@ router.get('/items', injectCacheService, async (req, res) => {
       async () => {
         try {
           const result = await req.app.locals.dataService.pool.query(`
-            SELECT i.*, it.name as type_name, r.name as rarity_name, r.color as rarity_color
+            SELECT i.*, it.name as type_name, it.category, r.name as rarity_name, r.color as rarity_color
             FROM items i
             JOIN item_types it ON i.type_id = it.id
             JOIN rarities r ON i.rarity_id = r.id
@@ -317,7 +320,12 @@ router.get('/dungeons', injectCacheService, async (req, res) => {
       () => req.cacheService.getStaticData('dungeons'),
       async () => {
         try {
-          const result = await req.app.locals.dataService.pool.query('SELECT * FROM dungeons');
+          const result = await req.app.locals.dataService.pool.query(`
+            SELECT d.*, diff.name as difficulty
+            FROM dungeons d
+            JOIN difficulties diff ON d.difficulty_id = diff.id
+            ORDER BY d.id
+          `);
           return result.rows;
         } catch (_) { return null; }
       }
@@ -551,44 +559,19 @@ router.post('/cache/refresh', injectCacheService, async (req, res) => {
  */
 router.get('/quests', injectCacheService, async (req, res) => {
   try {
-    const questsData = require('../data/sid/quests');
-
-    const mapQuestType = (type) => {
-      const t = (type || '').toLowerCase();
-      if (t === 'exploration') return 'explore';
-      if (t === 'boss') return 'kill';
-      if (t === 'defense') return 'defense';
-      if (t === 'ascension') return 'explore';
-      if (t === 'mastery') return 'craft';
-      if (t === 'mystery') return 'explore';
-      return t || 'task';
-    };
-
-    const buildObjective = (obj) => {
-      if (!obj || typeof obj !== 'object') return undefined;
-      const entries = Object.entries(obj);
-      if (!entries.length) return undefined;
-      return entries.map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(', ');
-    };
-
-    const makeId = (title, idx) => {
-      const base = String(title || `quest_${idx}`).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-      return `${base}_${idx}`;
-    };
-
-    const quests = (Array.isArray(questsData) ? questsData : []).map((q, idx) => ({
-      id: q.id || makeId(q.title, idx),
+    const result = await req.app.locals.dataService.pool.query('SELECT * FROM quests ORDER BY id');
+    const quests = result.rows.map(q => ({
+      id: q.id,
       title: q.title,
       description: q.description,
-      type: mapQuestType(q.type),
-      min_level: q.level_requirement || (q.requirements && q.requirements.level) || 1,
-      exp_reward: (q.rewards && q.rewards.experience) || 0,
-      gold_reward: (q.rewards && q.rewards.gold) || 0,
-      item_rewards: Array.isArray(q.rewards && q.rewards.items) ? q.rewards.items : (q.rewards && q.rewards.items ? [q.rewards.items] : []),
-      objective: buildObjective(q.objectives),
+      type: q.type,
+      min_level: q.level_requirement,
+      exp_reward: Array.isArray(q.rewards) ? (q.rewards.find(r => r.type === 'experience')?.value || 0) : 0,
+      gold_reward: Array.isArray(q.rewards) ? (q.rewards.find(r => r.type === 'gold')?.value || 0) : 0,
+      item_rewards: Array.isArray(q.rewards) ? (q.rewards.filter(r => r.type === 'item') || []) : [],
+      objective: Array.isArray(q.objectives) ? q.objectives.map(o => o.type).join(', ') : undefined,
       icon: q.icon
     }));
-
     res.json({ success: true, quests });
   } catch (error) {
     console.error('❌ Error fetching quests:', error);
