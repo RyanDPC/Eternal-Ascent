@@ -28,6 +28,7 @@ const combatRoutes = require('./routes/combat');
 const docsRoutes = require('./routes/docs');
 const adminRoutes = require('./routes/admin');
 const authenticateToken = require('./middleware/auth');
+const optimizedCharactersRoutes = require('./routes/optimized-characters');
 
 const config = require('./config');
 const TokenService = require('./services/TokenService');
@@ -259,6 +260,7 @@ app.use('/api/talents', talentsRoutes);
 app.use('/api', combatRoutes);
 app.use('/api', docsRoutes);
 app.use('/api', adminRoutes);
+app.use('/api/characters', optimizedCharactersRoutes);
 
 // Injecter et monter les systèmes avancés
 app.use((req, res, next) => {
@@ -445,37 +447,29 @@ app.post('/api/auth/verify-email', validate({ body: z.object({
         FROM skills s
         LEFT JOIN character_skills cs ON s.id = cs.skill_id 
           AND cs.character_id = (SELECT id FROM characters WHERE user_id = $1)
-        WHERE s.class_id = (SELECT class_id FROM characters WHERE user_id = $1)
-           OR s.class_id IS NULL
-      ),
-      achievements_data AS (
-        SELECT 
-          a.*,
-          ca.unlocked_at,
-          ca.progress
-        FROM achievements a
-        LEFT JOIN character_achievements ca ON a.id = ca.achievement_id 
-          AND ca.character_id = (SELECT id FROM characters WHERE user_id = $1)
+        WHERE s.class = (
+          SELECT cc.name FROM characters c
+          JOIN character_classes cc ON c.class_id = cc.id
+          WHERE c.user_id = $1
+        ) OR s.class IS NULL
       ),
       dungeons_data AS (
         SELECT 
           d.*,
           diff.display_name as difficulty_display_name,
-          diff.multiplier as difficulty_multiplier
+          diff.stat_multiplier as difficulty_multiplier
         FROM dungeons d
-        JOIN difficulties diff ON d.difficulty = diff.name
+        JOIN difficulties diff ON d.difficulty_id = diff.id
         WHERE d.level_requirement <= (SELECT level FROM characters WHERE user_id = $1)
         ORDER BY d.level_requirement ASC
         LIMIT 10
       ),
       quests_data AS (
         SELECT 
-          q.*,
-          qt.display_name as quest_type_display_name
+          q.*
         FROM quests q
-        LEFT JOIN quest_types qt ON q.type = qt.name
-        WHERE q.min_level <= (SELECT level FROM characters WHERE user_id = $1)
-        ORDER BY q.min_level ASC
+        WHERE q.level_requirement <= (SELECT level FROM characters WHERE user_id = $1)
+        ORDER BY q.level_requirement ASC
         LIMIT 10
       )
       SELECT 
@@ -483,7 +477,6 @@ app.post('/api/auth/verify-email', validate({ body: z.object({
         (SELECT calculated_stats FROM character_stats) as calculated_stats,
         (SELECT array_agg(row_to_json(inventory_data)) FROM inventory_data) as inventory,
         (SELECT array_agg(row_to_json(skills_data)) FROM skills_data) as skills,
-        (SELECT array_agg(row_to_json(achievements_data)) FROM achievements_data) as achievements,
         (SELECT array_agg(row_to_json(dungeons_data)) FROM dungeons_data) as recommended_dungeons,
         (SELECT array_agg(row_to_json(quests_data)) FROM quests_data) as recommended_quests
     `;
@@ -1021,7 +1014,7 @@ async function startServer() {
     // Initialiser les systèmes (ex: quêtes)
     systems = new Map();
     systems.set('quests', new QuestSystem(dataService.pool));
-    rotationService = new RotationService(dataService, cacheService, systems.get('quests'));
+    rotationService = new RotationService(dataService.pool, cacheService, systems.get('quests'));
     systems.set('rotations', rotationService);
     tokenService = new TokenService(dataService.pool);
     

@@ -1,0 +1,460 @@
+nohup: ignoring input
+🚀 Démarrage du serveur Eternal Ascent ULTRA-OPTIMISÉ...
+🚀 Initializing OptimizedDataService...
+🔄 Attempting database connection (1/5)...
+✅ Database connection established successfully
+🔁 Refreshing optimized views...
+✅ Optimized views ensured
+🚀 Preloading static data into cache...
+✅ Static data preloaded successfully
+✅ OptimizedDataService initialized successfully
+🔌 WebSocket Server initialisé sur /ws
+✅ Serveur ULTRA-OPTIMISÉ démarré sur le port 3001
+🌐 Environnement: development
+📊 Health check: http://localhost:3001/api/health
+📈 Métriques: http://localhost:3001/api/metrics
+
+🎯 OPTIMISATIONS ACTIVÉES:
+   ✅ Requêtes préparées: 21
+   ✅ Cache Redis: Activé
+   ✅ Compression: Activée
+   ✅ Rate Limiting: Activé
+   ✅ Vues SQL optimisées: Activées
+   ✅ Index composites: Activés
+   ✅ Pagination intelligente: Activée
+::1 - - [11/Sep/2025:18:43:00 +0000] "GET /api/health HTTP/1.1" 200 406 "-" "curl/8.12.1"
+[2025-09-11 18:43:00.844 +0000] [32mINFO[39m (7881): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 1,
+      "method": "GET",
+      "url": "/api/health",
+      "query": {},
+      "params": {},
+      "headers": {
+        "host": "localhost:3001",
+        "user-agent": "curl/8.12.1",
+        "accept": "*/*"
+      },
+      "remoteAddress": "::1",
+      "remotePort": 57924
+    }
+    [35mres[39m: {
+      "statusCode": 200,
+      "headers": {
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "origin-agent-cluster": "?1",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "DENY",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0",
+        "x-request-id": "7ac8e852-4838-427a-8099-cd45b8ba5f8c",
+        "vary": "Origin, Accept-Encoding",
+        "access-control-allow-credentials": "true",
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "406",
+        "etag": "W/\"196-D6WjuDqXn9EZ9k0weoCl61LZ8HQ\""
+      }
+    }
+    [35mresponseTime[39m: 100
+Mail send failed: SMTP not configured. Please set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and MAIL_FROM
+::1 - - [11/Sep/2025:18:43:08 +0000] "POST /api/auth/request-email-code HTTP/1.1" 200 111 "-" "axios/1.11.0"
+[2025-09-11 18:43:08.877 +0000] [32mINFO[39m (7881): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 2,
+      "method": "POST",
+      "url": "/api/auth/request-email-code",
+      "query": {},
+      "params": {},
+      "headers": {
+        "accept": "application/json, text/plain, */*",
+        "content-type": "application/json",
+        "user-agent": "axios/1.11.0",
+        "content-length": "69",
+        "accept-encoding": "gzip, compress, deflate, br",
+        "host": "localhost:3001",
+        "connection": "keep-alive"
+      },
+      "remoteAddress": "::1",
+      "remotePort": 54282
+    }
+    [35mres[39m: {
+      "statusCode": 200,
+      "headers": {
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "origin-agent-cluster": "?1",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "DENY",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0",
+        "x-request-id": "ace405bc-1492-4166-b161-4270e8c54d63",
+        "ratelimit-policy": "10;w=900",
+        "ratelimit-limit": "10",
+        "ratelimit-remaining": "9",
+        "ratelimit-reset": "900",
+        "vary": "Origin, Accept-Encoding",
+        "access-control-allow-credentials": "true",
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "111",
+        "etag": "W/\"6f-GCKNuWycxdtzda5q7rPkBXVT0go\""
+      }
+    }
+    [35mresponseTime[39m: 556
+🔍 IDs des équipements de départ trouvés: [
+  {
+    id: 57,
+    name: 'sword_iron',
+    quantity: 1,
+    equipped: true,
+    slot: 'weapon'
+  }
+]
+   ⚔️ 1 équipements de départ ajoutés pour la classe warrior
+::1 - - [11/Sep/2025:18:43:13 +0000] "POST /api/auth/verify-email HTTP/1.1" 200 - "-" "axios/1.11.0"
+[2025-09-11 18:43:13.871 +0000] [32mINFO[39m (7881): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 3,
+      "method": "POST",
+      "url": "/api/auth/verify-email",
+      "query": {},
+      "params": {},
+      "headers": {
+        "accept": "application/json, text/plain, */*",
+        "content-type": "application/json",
+        "user-agent": "axios/1.11.0",
+        "content-length": "144",
+        "accept-encoding": "gzip, compress, deflate, br",
+        "host": "localhost:3001",
+        "connection": "keep-alive"
+      },
+      "remoteAddress": "::1",
+      "remotePort": 54282
+    }
+    [35mres[39m: {
+      "statusCode": 200,
+      "headers": {
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "origin-agent-cluster": "?1",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "DENY",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0",
+        "x-request-id": "2cb71c62-2ed7-45a9-90a5-de9fc11b7696",
+        "ratelimit-policy": "10;w=900",
+        "ratelimit-limit": "10",
+        "ratelimit-remaining": "8",
+        "ratelimit-reset": "900",
+        "vary": "Origin, Accept-Encoding",
+        "access-control-allow-credentials": "true",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"1dcb-RM3MfpLF1U+wf0HRD29mUfR9wYM\"",
+        "content-encoding": "br"
+      }
+    }
+    [35mresponseTime[39m: 4990
+Mail send failed: SMTP not configured. Please set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and MAIL_FROM
+::1 - - [11/Sep/2025:18:43:14 +0000] "POST /api/auth/request-email-code HTTP/1.1" 200 111 "-" "axios/1.11.0"
+[2025-09-11 18:43:14.485 +0000] [32mINFO[39m (7881): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 4,
+      "method": "POST",
+      "url": "/api/auth/request-email-code",
+      "query": {},
+      "params": {},
+      "headers": {
+        "accept": "application/json, text/plain, */*",
+        "content-type": "application/json",
+        "user-agent": "axios/1.11.0",
+        "content-length": "69",
+        "accept-encoding": "gzip, compress, deflate, br",
+        "host": "localhost:3001",
+        "connection": "keep-alive"
+      },
+      "remoteAddress": "::1",
+      "remotePort": 54296
+    }
+    [35mres[39m: {
+      "statusCode": 200,
+      "headers": {
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "origin-agent-cluster": "?1",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "DENY",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0",
+        "x-request-id": "58c7976b-13f7-4ef1-a46b-ccd5ddbd7b95",
+        "ratelimit-policy": "10;w=900",
+        "ratelimit-limit": "10",
+        "ratelimit-remaining": "7",
+        "ratelimit-reset": "895",
+        "vary": "Origin, Accept-Encoding",
+        "access-control-allow-credentials": "true",
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "111",
+        "etag": "W/\"6f-rwWfLPbEEWiJ78D9cP3yyqHqnuo\""
+      }
+    }
+    [35mresponseTime[39m: 541
+🔍 IDs des équipements de départ trouvés: [
+  {
+    id: 57,
+    name: 'sword_iron',
+    quantity: 1,
+    equipped: true,
+    slot: 'weapon'
+  }
+]
+   ⚔️ 1 équipements de départ ajoutés pour la classe warrior
+::1 - - [11/Sep/2025:18:43:16 +0000] "POST /api/auth/verify-email HTTP/1.1" 200 - "-" "axios/1.11.0"
+[2025-09-11 18:43:16.684 +0000] [32mINFO[39m (7881): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 5,
+      "method": "POST",
+      "url": "/api/auth/verify-email",
+      "query": {},
+      "params": {},
+      "headers": {
+        "accept": "application/json, text/plain, */*",
+        "content-type": "application/json",
+        "user-agent": "axios/1.11.0",
+        "content-length": "144",
+        "accept-encoding": "gzip, compress, deflate, br",
+        "host": "localhost:3001",
+        "connection": "keep-alive"
+      },
+      "remoteAddress": "::1",
+      "remotePort": 54296
+    }
+    [35mres[39m: {
+      "statusCode": 200,
+      "headers": {
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "origin-agent-cluster": "?1",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "DENY",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0",
+        "x-request-id": "22707b0a-f7a5-40b2-874c-036f2f4dd06b",
+        "ratelimit-policy": "10;w=900",
+        "ratelimit-limit": "10",
+        "ratelimit-remaining": "6",
+        "ratelimit-reset": "894",
+        "vary": "Origin, Accept-Encoding",
+        "access-control-allow-credentials": "true",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"1dcb-KvJA+3LELUX9C4kzb8MuGr2vvWo\"",
+        "content-encoding": "br"
+      }
+    }
+    [35mresponseTime[39m: 2195
+::1 - - [11/Sep/2025:18:43:17 +0000] "GET /api/characters/current HTTP/1.1" 200 - "-" "axios/1.11.0"
+[2025-09-11 18:43:17.083 +0000] [32mINFO[39m (7881): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 6,
+      "method": "GET",
+      "url": "/api/characters/current",
+      "query": {},
+      "params": {},
+      "headers": {
+        "accept": "application/json, text/plain, */*",
+        "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInVzZXJuYW1lIjoidGVzdGVyX3dwcTd3YyIsImlhdCI6MTc1NzYxNjE5NiwiZXhwIjoxNzU3NjE3MDk2fQ.AIfWkS1fA_sN61Y3nNOBUj4rqnkqOixMsqRcSMV653E",
+        "user-agent": "axios/1.11.0",
+        "accept-encoding": "gzip, compress, deflate, br",
+        "host": "localhost:3001",
+        "connection": "keep-alive"
+      },
+      "remoteAddress": "::1",
+      "remotePort": 54296
+    }
+    [35mres[39m: {
+      "statusCode": 200,
+      "headers": {
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "origin-agent-cluster": "?1",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "DENY",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0",
+        "x-request-id": "b9852ab8-c32f-4eac-ae73-c15b2d58c09d",
+        "ratelimit-policy": "200;w=900",
+        "ratelimit-limit": "200",
+        "ratelimit-remaining": "195",
+        "ratelimit-reset": "892",
+        "vary": "Origin, Accept-Encoding",
+        "access-control-allow-credentials": "true",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"9b7-pWUuXzYtHYjuXM3oQIybk29Wzeo\"",
+        "content-encoding": "br"
+      }
+    }
+    [35mresponseTime[39m: 395
+::1 - - [11/Sep/2025:18:43:17 +0000] "GET /api/characters/2/stats HTTP/1.1" 200 - "-" "axios/1.11.0"
+::1 - - [11/Sep/2025:18:43:17 +0000] "GET /api/characters/2/inventory HTTP/1.1" 200 - "-" "axios/1.11.0"
+[2025-09-11 18:43:17.376 +0000] [32mINFO[39m (7881): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 7,
+      "method": "GET",
+      "url": "/api/characters/2/stats",
+      "query": {},
+      "params": {},
+      "headers": {
+        "accept": "application/json, text/plain, */*",
+        "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInVzZXJuYW1lIjoidGVzdGVyX3dwcTd3YyIsImlhdCI6MTc1NzYxNjE5NiwiZXhwIjoxNzU3NjE3MDk2fQ.AIfWkS1fA_sN61Y3nNOBUj4rqnkqOixMsqRcSMV653E",
+        "user-agent": "axios/1.11.0",
+        "accept-encoding": "gzip, compress, deflate, br",
+        "host": "localhost:3001",
+        "connection": "keep-alive"
+      },
+      "remoteAddress": "::1",
+      "remotePort": 54296
+    }
+    [35mres[39m: {
+      "statusCode": 200,
+      "headers": {
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "origin-agent-cluster": "?1",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "DENY",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0",
+        "x-request-id": "0938b9cf-dcb8-4771-bd71-603db01de6a3",
+        "ratelimit-policy": "200;w=900",
+        "ratelimit-limit": "200",
+        "ratelimit-remaining": "194",
+        "ratelimit-reset": "892",
+        "vary": "Origin, Accept-Encoding",
+        "access-control-allow-credentials": "true",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"465-bHIeRk24RDG410nW/Fr+rp6xbfM\"",
+        "content-encoding": "br"
+      }
+    }
+    [35mresponseTime[39m: 290
+[2025-09-11 18:43:17.476 +0000] [32mINFO[39m (7881): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 8,
+      "method": "GET",
+      "url": "/api/characters/2/inventory",
+      "query": {},
+      "params": {},
+      "headers": {
+        "accept": "application/json, text/plain, */*",
+        "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInVzZXJuYW1lIjoidGVzdGVyX3dwcTd3YyIsImlhdCI6MTc1NzYxNjE5NiwiZXhwIjoxNzU3NjE3MDk2fQ.AIfWkS1fA_sN61Y3nNOBUj4rqnkqOixMsqRcSMV653E",
+        "user-agent": "axios/1.11.0",
+        "accept-encoding": "gzip, compress, deflate, br",
+        "host": "localhost:3001",
+        "connection": "keep-alive"
+      },
+      "remoteAddress": "::1",
+      "remotePort": 54296
+    }
+    [35mres[39m: {
+      "statusCode": 200,
+      "headers": {
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "origin-agent-cluster": "?1",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "DENY",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0",
+        "x-request-id": "666d7e41-043e-4f90-b55d-e63782d4c587",
+        "ratelimit-policy": "200;w=900",
+        "ratelimit-limit": "200",
+        "ratelimit-remaining": "193",
+        "ratelimit-reset": "891",
+        "vary": "Origin, Accept-Encoding",
+        "access-control-allow-credentials": "true",
+        "content-type": "application/json; charset=utf-8",
+        "etag": "W/\"77e-XnMj4YWdnnd6Ywv0pLS9JdBYRBA\"",
+        "content-encoding": "br"
+      }
+    }
+    [35mresponseTime[39m: 98
+::1 - - [11/Sep/2025:18:51:32 +0000] "GET /api/guilds HTTP/1.1" 401 26 "http://localhost/" "Mozilla/5.0 (linux) AppleWebKit/537.36 (KHTML, like Gecko) jsdom/16.7.0"
+[2025-09-11 18:51:32.861 +0000] [32mINFO[39m (7881): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 9,
+      "method": "GET",
+      "url": "/api/guilds",
+      "query": {},
+      "params": {},
+      "headers": {
+        "content-type": "application/json",
+        "referer": "http://localhost/",
+        "user-agent": "Mozilla/5.0 (linux) AppleWebKit/537.36 (KHTML, like Gecko) jsdom/16.7.0",
+        "accept-language": "en",
+        "accept": "*/*",
+        "origin": "http://localhost",
+        "accept-encoding": "gzip, deflate",
+        "host": "localhost:3001",
+        "connection": "keep-alive"
+      },
+      "remoteAddress": "::1",
+      "remotePort": 56538
+    }
+    [35mres[39m: {
+      "statusCode": 401,
+      "headers": {
+        "cross-origin-opener-policy": "same-origin",
+        "cross-origin-resource-policy": "same-origin",
+        "origin-agent-cluster": "?1",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",
+        "x-download-options": "noopen",
+        "x-frame-options": "DENY",
+        "x-permitted-cross-domain-policies": "none",
+        "x-xss-protection": "0",
+        "x-request-id": "2934a355-263c-47b3-9435-114c6867d692",
+        "ratelimit-policy": "200;w=900",
+        "ratelimit-limit": "200",
+        "ratelimit-remaining": "192",
+        "ratelimit-reset": "396",
+        "vary": "Origin, Accept-Encoding",
+        "access-control-allow-credentials": "true",
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "26",
+        "etag": "W/\"1a-mE1L0mD9M/SCrFerDTfn7/576bg\""
+      }
+    }
+    [35mresponseTime[39m: 2

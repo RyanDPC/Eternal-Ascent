@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, User, Shield, Bell, Palette, Database, Save, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { Settings as SettingsIcon, User, Shield, Bell, Palette, Database, Save, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import databaseService from '../../services/databaseService';
 import './Settings.css';
 
-const Settings = () => {
+const SettingsPage = () => {
   const [character, setCharacter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -69,10 +69,7 @@ const Settings = () => {
   const saveSettings = async () => {
     try {
       setSaveStatus('saving');
-      
-      // Sauvegarder les paramètres (à implémenter)
-      // await databaseService.saveUserSettings(user.id, settings);
-      
+      // Sauvegarde (à implémenter)
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (error) {
@@ -82,57 +79,30 @@ const Settings = () => {
     }
   };
 
-  // Réinitialiser les paramètres
   const resetSettings = () => {
     if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les paramètres ?')) {
       setSettings({
-        notifications: {
-          combat: true,
-          quests: true,
-          guild: true,
-          achievements: true
-        },
-        display: {
-          theme: 'dark',
-          animations: true,
-          soundEffects: true,
-          music: true
-        },
-        gameplay: {
-          autoSave: true,
-          confirmActions: true,
-          showDamage: true,
-          showFPS: false
-        },
-        privacy: {
-          showOnlineStatus: true,
-          allowFriendRequests: true,
-          showLevel: true,
-          showEquipment: false
-        }
+        notifications: { combat: true, quests: true, guild: true, achievements: true },
+        display: { theme: 'dark', animations: true, soundEffects: true, music: true },
+        gameplay: { autoSave: true, confirmActions: true, showDamage: true, showFPS: false },
+        privacy: { showOnlineStatus: true, allowFriendRequests: true, showLevel: true, showEquipment: false }
       });
     }
   };
 
-  // Mettre à jour un paramètre
   const updateSetting = (category, key, value) => {
     setSettings(prev => ({
       ...prev,
-      [category]: {
-        ...prev[category],
-        [key]: value
-      }
+      [category]: { ...prev[category], [key]: value }
     }));
   };
 
-  // Gérer la déconnexion
   const handleLogout = () => {
     if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
       logout();
     }
   };
 
-  // Vérifier la connexion à la base de données
   const checkDatabaseConnection = async () => {
     try {
       const connected = await databaseService.checkConnection();
@@ -147,7 +117,7 @@ const Settings = () => {
       <div className="settings-loading">
         <motion.div
           animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
           className="loading-spinner"
         >
           ⚙️
@@ -178,11 +148,7 @@ const Settings = () => {
 
   return (
     <div className="settings-page">
-      <motion.div className="settings-header" 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
+      <motion.div className="settings-header" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
         <h1>⚙️ Paramètres</h1>
         <p>Personnalisez votre expérience de jeu et gérez vos préférences</p>
         <div className="character-info-banner">
@@ -194,338 +160,176 @@ const Settings = () => {
         </div>
       </motion.div>
 
-      {/* Actions principales */}
-      <motion.div
-        className="settings-actions"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.1 }}
-      >
-        <button 
-          className="save-settings-btn"
-          onClick={saveSettings}
-          disabled={saveStatus === 'saving'}
-        >
-          {saveStatus === 'saving' ? (
-            <RefreshCw size={16} className="spinning" />
-          ) : saveStatus === 'success' ? (
-            <CheckCircle size={16} />
-          ) : saveStatus === 'error' ? (
-            <AlertCircle size={16} />
-          ) : (
-            <Save size={16} />
-          )}
-          {saveStatus === 'saving' ? 'Sauvegarde...' : 
-           saveStatus === 'success' ? 'Sauvegardé !' : 
-           saveStatus === 'error' ? 'Erreur' : 'Sauvegarder'}
+      <motion.div className="settings-actions" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}>
+        <button className="save-settings-btn" onClick={saveSettings} disabled={saveStatus === 'saving'}>
+          {saveStatus === 'saving' ? (<RefreshCw size={16} className="spinning" />) : saveStatus === 'success' ? (<CheckCircle size={16} />) : saveStatus === 'error' ? (<AlertCircle size={16} />) : (<Save size={16} />)}
+          {saveStatus === 'saving' ? 'Sauvegarde...' : saveStatus === 'success' ? 'Sauvegardé !' : saveStatus === 'error' ? 'Erreur' : 'Sauvegarder'}
         </button>
-        
-        <button 
-          className="reset-settings-btn"
-          onClick={resetSettings}
-        >
+        <button className="reset-settings-btn" onClick={resetSettings}>
           <RefreshCw size={16} />
           Réinitialiser
         </button>
       </motion.div>
 
-      {/* Sections de paramètres */}
       <div className="settings-sections">
-        {/* Notifications */}
-        <motion.div
-          className="settings-section"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
+        <motion.div className="settings-section" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
           <div className="section-header">
             <Bell size={24} />
             <h3>🔔 Notifications</h3>
           </div>
-          
           <div className="settings-grid">
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.notifications.combat}
-                  onChange={(e) => updateSetting('notifications', 'combat', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.notifications.combat} onChange={(e) => updateSetting('notifications', 'combat', e.target.checked)} />
                 <span>Notifications de combat</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.notifications.quests}
-                  onChange={(e) => updateSetting('notifications', 'quests', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.notifications.quests} onChange={(e) => updateSetting('notifications', 'quests', e.target.checked)} />
                 <span>Notifications de quêtes</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.notifications.guild}
-                  onChange={(e) => updateSetting('notifications', 'guild', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.notifications.guild} onChange={(e) => updateSetting('notifications', 'guild', e.target.checked)} />
                 <span>Notifications de guilde</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.notifications.achievements}
-                  onChange={(e) => updateSetting('notifications', 'achievements', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.notifications.achievements} onChange={(e) => updateSetting('notifications', 'achievements', e.target.checked)} />
                 <span>Notifications d'achievements</span>
               </label>
             </div>
           </div>
         </motion.div>
 
-        {/* Affichage */}
-        <motion.div
-          className="settings-section"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-        >
+        <motion.div className="settings-section" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
           <div className="section-header">
             <Palette size={24} />
             <h3>🎨 Affichage</h3>
           </div>
-          
           <div className="settings-grid">
             <div className="setting-item">
               <label>Thème</label>
-              <select
-                value={settings.display.theme}
-                onChange={(e) => updateSetting('display', 'theme', e.target.value)}
-              >
+              <select value={settings.display.theme} onChange={(e) => updateSetting('display', 'theme', e.target.value)}>
                 <option value="dark">Sombre</option>
                 <option value="light">Clair</option>
                 <option value="auto">Automatique</option>
               </select>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.display.animations}
-                  onChange={(e) => updateSetting('display', 'animations', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.display.animations} onChange={(e) => updateSetting('display', 'animations', e.target.checked)} />
                 <span>Animations</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.display.soundEffects}
-                  onChange={(e) => updateSetting('display', 'soundEffects', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.display.soundEffects} onChange={(e) => updateSetting('display', 'soundEffects', e.target.checked)} />
                 <span>Effets sonores</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.display.music}
-                  onChange={(e) => updateSetting('display', 'music', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.display.music} onChange={(e) => updateSetting('display', 'music', e.target.checked)} />
                 <span>Musique de fond</span>
               </label>
             </div>
           </div>
         </motion.div>
 
-        {/* Gameplay */}
-        <motion.div
-          className="settings-section"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-        >
+        <motion.div className="settings-section" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.4 }}>
           <div className="section-header">
             <User size={24} />
             <h3>🎮 Gameplay</h3>
           </div>
-          
           <div className="settings-grid">
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.gameplay.autoSave}
-                  onChange={(e) => updateSetting('gameplay', 'autoSave', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.gameplay.autoSave} onChange={(e) => updateSetting('gameplay', 'autoSave', e.target.checked)} />
                 <span>Sauvegarde automatique</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.gameplay.confirmActions}
-                  onChange={(e) => updateSetting('gameplay', 'confirmActions', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.gameplay.confirmActions} onChange={(e) => updateSetting('gameplay', 'confirmActions', e.target.checked)} />
                 <span>Confirmer les actions importantes</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.gameplay.showDamage}
-                  onChange={(e) => updateSetting('gameplay', 'showDamage', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.gameplay.showDamage} onChange={(e) => updateSetting('gameplay', 'showDamage', e.target.checked)} />
                 <span>Afficher les dégâts</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.gameplay.showFPS}
-                  onChange={(e) => updateSetting('gameplay', 'showFPS', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.gameplay.showFPS} onChange={(e) => updateSetting('gameplay', 'showFPS', e.target.checked)} />
                 <span>Afficher le FPS</span>
               </label>
             </div>
           </div>
         </motion.div>
 
-        {/* Confidentialité */}
-        <motion.div
-          className="settings-section"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-        >
+        <motion.div className="settings-section" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.5 }}>
           <div className="section-header">
             <Shield size={24} />
             <h3>🔒 Confidentialité</h3>
           </div>
-          
           <div className="settings-grid">
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.privacy.showOnlineStatus}
-                  onChange={(e) => updateSetting('privacy', 'showOnlineStatus', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.privacy.showOnlineStatus} onChange={(e) => updateSetting('privacy', 'showOnlineStatus', e.target.checked)} />
                 <span>Afficher le statut en ligne</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.privacy.allowFriendRequests}
-                  onChange={(e) => updateSetting('privacy', 'allowFriendRequests', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.privacy.allowFriendRequests} onChange={(e) => updateSetting('privacy', 'allowFriendRequests', e.target.checked)} />
                 <span>Autoriser les demandes d'amis</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.privacy.showLevel}
-                  onChange={(e) => updateSetting('privacy', 'showLevel', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.privacy.showLevel} onChange={(e) => updateSetting('privacy', 'showLevel', e.target.checked)} />
                 <span>Afficher le niveau</span>
               </label>
             </div>
-            
             <div className="setting-item">
               <label>
-                <input
-                  type="checkbox"
-                  checked={settings.privacy.showEquipment}
-                  onChange={(e) => updateSetting('privacy', 'showEquipment', e.target.checked)}
-                />
+                <input type="checkbox" checked={settings.privacy.showEquipment} onChange={(e) => updateSetting('privacy', 'showEquipment', e.target.checked)} />
                 <span>Afficher l'équipement</span>
               </label>
             </div>
           </div>
         </motion.div>
 
-        {/* Informations système */}
-        <motion.div
-          className="settings-section"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-        >
+        <motion.div className="settings-section" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.6 }}>
           <div className="section-header">
             <Database size={24} />
             <h3>💾 Informations système</h3>
           </div>
-          
           <div className="system-info">
-            <div className="info-item">
-              <strong>Version:</strong> 1.0.0
-            </div>
-            <div className="info-item">
-              <strong>Base de données:</strong> 
-              <span className="status-indicator">
-                {checkDatabaseConnection() ? '🟢 Connectée' : '🔴 Déconnectée'}
-              </span>
-            </div>
-            <div className="info-item">
-              <strong>Dernière sauvegarde:</strong> 
-              {character.last_played ? new Date(character.last_played).toLocaleString('fr-FR') : 'Jamais'}
-            </div>
-            <div className="info-item">
-              <strong>Stockage local:</strong> 
-              <span className="status-indicator">🟢 Disponible</span>
-            </div>
+            <div className="info-item"><strong>Version:</strong> 1.0.0</div>
+            <div className="info-item"><strong>Base de données:</strong> <span className="status-indicator">{checkDatabaseConnection() ? '🟢 Connectée' : '🔴 Déconnectée'}</span></div>
+            <div className="info-item"><strong>Dernière sauvegarde:</strong> {character.last_played ? new Date(character.last_played).toLocaleString('fr-FR') : 'Jamais'}</div>
+            <div className="info-item"><strong>Stockage local:</strong> <span className="status-indicator">🟢 Disponible</span></div>
           </div>
         </motion.div>
 
-        {/* Actions de compte */}
-        <motion.div
-          className="settings-section danger-zone"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.7 }}
-        >
+        <motion.div className="settings-section danger-zone" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.7 }}>
           <div className="section-header">
             <AlertCircle size={24} />
             <h3>⚠️ Zone de danger</h3>
           </div>
-          
           <div className="danger-actions">
-            <button 
-              className="logout-btn"
-              onClick={handleLogout}
-            >
+            <button className="logout-btn" onClick={handleLogout}>
               <User size={16} />
               Se déconnecter
             </button>
-            
-            <button 
-              className="delete-account-btn"
-              onClick={() => alert('🚧 Fonctionnalité en cours de développement')}
-            >
+            <button className="delete-account-btn" onClick={() => alert('🚧 Fonctionnalité en cours de développement')}>
               <AlertCircle size={16} />
               Supprimer le compte
             </button>
@@ -536,4 +340,4 @@ const Settings = () => {
   );
 };
 
-export default Settings;
+export default SettingsPage;
