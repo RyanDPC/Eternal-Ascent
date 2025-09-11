@@ -27,6 +27,8 @@ const talentsRoutes = require('./routes/talents');
 const combatRoutes = require('./routes/combat');
 const docsRoutes = require('./routes/docs');
 const adminRoutes = require('./routes/admin');
+const characterRoutes = require('./routes/optimized-characters');
+const activityRoutes = require('./routes/activity');
 const authenticateToken = require('./middleware/auth');
 
 const config = require('./config');
@@ -259,6 +261,8 @@ app.use('/api/talents', talentsRoutes);
 app.use('/api', combatRoutes);
 app.use('/api', docsRoutes);
 app.use('/api', adminRoutes);
+app.use('/api/characters', characterRoutes);
+app.use('/api/activity', activityRoutes);
 
 // Injecter et monter les systèmes avancés
 app.use((req, res, next) => {
@@ -1017,6 +1021,19 @@ async function startServer() {
     
     // Initialiser les services
     await dataService.initialize();
+
+    // Assurer la table d'activité
+    await dataService.pool.query(`
+      CREATE TABLE IF NOT EXISTS activity_events (
+        id SERIAL PRIMARY KEY,
+        character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+        type VARCHAR(40) NOT NULL,
+        description TEXT,
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_activity_events_character_id_created_at ON activity_events(character_id, created_at DESC);
+    `);
 
     // Initialiser les systèmes (ex: quêtes)
     systems = new Map();

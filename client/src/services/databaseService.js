@@ -166,8 +166,8 @@ class DatabaseService {
   async equipItem(characterId, itemId, slot) {
     try {
       return await this.authenticatedRequest(`/characters/${characterId}/equip`, {
-        method: 'POST',
-        body: JSON.stringify({ itemId, slot })
+        method: 'PUT',
+        body: JSON.stringify({ item_id: itemId, slot })
       });
     } catch (error) {
       console.error('Erreur lors de l\'équipement:', error);
@@ -175,11 +175,11 @@ class DatabaseService {
     }
   }
 
-  async unequipItem(characterId, slot) {
+  async unequipItem(characterId, itemId) {
     try {
       return await this.authenticatedRequest(`/characters/${characterId}/unequip`, {
-        method: 'POST',
-        body: JSON.stringify({ slot })
+        method: 'PUT',
+        body: JSON.stringify({ item_id: itemId })
       });
     } catch (error) {
       console.error('Erreur lors du déséquipement:', error);
