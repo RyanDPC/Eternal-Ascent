@@ -2,7 +2,7 @@
 // CALCULATEUR DE STATS DE PERSONNAGE
 // =====================================================
 
-const equipmentManager = require('../data/sid/equipment');
+const equipmentManager = require('../data/sid/equipments');
 
 class CharacterStatsCalculator {
   constructor() {

@@ -15,6 +15,8 @@ import './App.css';
 const Login = lazy(() => import('./components/auth/Login'));
 const Register = lazy(() => import('./components/auth/Register'));
 const Dashboard = lazy(() => import('./components/dashboard/Dashboard'));
+const OptimizedDashboardV2 = lazy(() => import('./components/dashboard/Dashboard.js'));
+const OptimizedCharacterPage = lazy(() => import('./components/character/Character.js'));
 const Character = lazy(() => import('./components/character/Character'));
 const Quests = lazy(() => import('./components/quests/Quests'));
 import Inventory from './components/inventory/Inventory.jsx';
@@ -124,6 +126,11 @@ function App() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
                     <Route path="/dashboard" element={
+                      <ProtectedRoute>
+                        <OptimizedDashboardV2 />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/dashboard-old" element={
                       <ProtectedRoute>
                         <Dashboard />
                       </ProtectedRoute>

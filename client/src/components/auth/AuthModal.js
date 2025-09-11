@@ -64,20 +64,21 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess }) => {
     try {
       if (isLogin) {
         // Connexion
-        const response = await databaseService.authenticateUser({
-          username: formData.username,
-          password: formData.password
-        });
+        const response = await databaseService.login(
+          formData.username,
+          formData.password
+        );
 
         setSuccess('Connexion réussie !');
+        // Attendre que l'utilisateur soit défini dans le contexte
         setTimeout(() => {
           onAuthSuccess(response);
           onClose();
-        }, 1500);
+        }, 500);
 
       } else {
         // Création de compte
-        const response = await databaseService.createUser({
+        const response = await databaseService.register({
           username: formData.username,
           email: formData.email,
           password: formData.password

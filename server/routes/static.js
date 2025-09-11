@@ -1,6 +1,26 @@
 const express = require('express');
 const router = express.Router();
+const { Pool } = require('pg');
+const jwt = require('jsonwebtoken');
 const talentsData = require('../data/sid/talents');
+
+// Middleware d'authentification
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token d\'accès requis' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'eterna_secret_key', (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token invalide' });
+    }
+    req.user = user;
+    next();
+  });
+};
 
 // Middleware pour injecter le service de cache
 const injectCacheService = (req, res, next) => {
@@ -575,6 +595,334 @@ router.get('/quests', injectCacheService, async (req, res) => {
     res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 });
+
+// ===== ENDPOINTS DE PAGES OPTIMISÉES =====
+
+/**
+ * GET /api/dashboard
+ * Endpoint optimisé pour le dashboard avec toutes les données nécessaires
+ */
+router.get('/dashboard', authenticateToken, async (req, res) => {
+  const pool = new Pool(getDbConfig());
+  
+  try {
+    const userId = req.user.id;
+    
+    // Récupérer toutes les données nécessaires en une seule requête
+    const dashboardQuery = `
+      WITH character_data AS (
+        SELECT 
+          c.*,
+          cc.display_name as class_name,
+          cc.base_stats as class_base_stats,
+          cc.description as class_description,
+          u.email,
+          u.username,
+          u.created_at as user_created_at
+        FROM characters c
+        JOIN character_classes cc ON c.class_id = cc.id
+        JOIN users u ON c.user_id = u.id
+        WHERE c.user_id = $1
+      ),
+      character_stats AS (
+        SELECT calculate_character_stats(c.id) as calculated_stats
+        FROM characters c
+        WHERE c.user_id = $1
+      ),
+      inventory_data AS (
+        SELECT 
+          ci.*,
+          i.name as item_name,
+          i.display_name as item_display_name,
+          i.description as item_description,
+          i.level_requirement,
+          i.base_stats as item_base_stats,
+          i.rarity_id,
+          r.name as rarity_name,
+          r.display_name as rarity_display_name,
+          r.color as rarity_color,
+          it.name as item_type_name,
+          it.display_name as item_type_display_name,
+          it.equip_slot
+        FROM character_inventory ci
+        JOIN items i ON ci.item_id = i.id
+        JOIN rarities r ON i.rarity_id = r.id
+        JOIN item_types it ON i.type_id = it.id
+        WHERE ci.character_id = (SELECT id FROM characters WHERE user_id = $1)
+      ),
+      skills_data AS (
+        SELECT 
+          s.*,
+          cs.level as learned_level,
+          cs.learned_at
+        FROM skills s
+        LEFT JOIN character_skills cs ON s.id = cs.skill_id 
+          AND cs.character_id = (SELECT id FROM characters WHERE user_id = $1)
+        WHERE s.class_id = (SELECT class_id FROM characters WHERE user_id = $1)
+           OR s.class_id IS NULL
+      ),
+      achievements_data AS (
+        SELECT 
+          a.*,
+          ca.unlocked_at,
+          ca.progress
+        FROM achievements a
+        LEFT JOIN character_achievements ca ON a.id = ca.achievement_id 
+          AND ca.character_id = (SELECT id FROM characters WHERE user_id = $1)
+      ),
+      dungeons_data AS (
+        SELECT 
+          d.*,
+          diff.display_name as difficulty_display_name,
+          diff.multiplier as difficulty_multiplier
+        FROM dungeons d
+        JOIN difficulties diff ON d.difficulty = diff.name
+        WHERE d.level_requirement <= (SELECT level FROM characters WHERE user_id = $1)
+        ORDER BY d.level_requirement ASC
+        LIMIT 10
+      ),
+      quests_data AS (
+        SELECT 
+          q.*,
+          qt.display_name as quest_type_display_name
+        FROM quests q
+        LEFT JOIN quest_types qt ON q.type = qt.name
+        WHERE q.min_level <= (SELECT level FROM characters WHERE user_id = $1)
+        ORDER BY q.min_level ASC
+        LIMIT 10
+      )
+      SELECT 
+        (SELECT row_to_json(character_data) FROM character_data) as character,
+        (SELECT calculated_stats FROM character_stats) as calculated_stats,
+        (SELECT array_agg(row_to_json(inventory_data)) FROM inventory_data) as inventory,
+        (SELECT array_agg(row_to_json(skills_data)) FROM skills_data) as skills,
+        (SELECT array_agg(row_to_json(achievements_data)) FROM achievements_data) as achievements,
+        (SELECT array_agg(row_to_json(dungeons_data)) FROM dungeons_data) as recommended_dungeons,
+        (SELECT array_agg(row_to_json(quests_data)) FROM quests_data) as recommended_quests
+    `;
+    
+    let result = await pool.query(dashboardQuery, [userId]);
+    let data;
+    
+    if (result.rows.length === 0) {
+      // Créer un personnage par défaut si l'utilisateur n'en a pas
+      const createCharacterQuery = `
+        INSERT INTO characters (
+          user_id, name, class_id, level, experience, experience_to_next,
+          health, max_health, mana, max_mana, attack, defense, 
+          magic_attack, magic_defense, critical_rate, critical_damage,
+          vitality, strength, intelligence, agility, resistance, precision,
+          endurance, wisdom, constitution, dexterity,
+          health_regen, mana_regen, attack_speed, movement_speed,
+          dodge_chance, block_chance, parry_chance, spell_power, physical_power
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
+        RETURNING id, name, level
+      `;
+      
+      const defaultName = `Hero_${userId}`;
+      await pool.query(createCharacterQuery, [
+        userId, defaultName, 1, // Classe par défaut (warrior)
+        1, 0, 100, // Level 1, 0 XP, 100 XP pour next level
+        150, 150, 50, 50, // HP/MP
+        25, 20, 8, 10, // Attack/Defense
+        5.0, 150.0, // Crit
+        10, 10, 10, 10, 10, 10, 10, 10, 10, 10, // Stats secondaires
+        1.0, 0.5, 100.0, 100.0, 8.0, 5.0, 3.0, 100.0, 100.0 // Stats dérivées
+      ]);
+      
+      // Relancer la requête après création du personnage
+      result = await pool.query(dashboardQuery, [userId]);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Impossible de créer un personnage' });
+      }
+    }
+    
+    data = result.rows[0];
+    
+    // Structurer la réponse optimisée
+    const optimizedResponse = {
+      character: {
+        ...data.character,
+        stats: data.calculated_stats,
+        inventory: data.inventory || [],
+        skills: data.skills || [],
+        achievements: data.achievements || [],
+        recommended_dungeons: data.recommended_dungeons || [],
+        recommended_quests: data.recommended_quests || []
+      },
+      metadata: {
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+      }
+    };
+    
+    res.json(optimizedResponse);
+    
+  } catch (error) {
+    console.error('Erreur dashboard optimisé:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    await pool.end();
+  }
+});
+
+/**
+ * GET /api/character
+ * Endpoint optimisé pour la page personnage
+ */
+router.get('/character', authenticateToken, async (req, res) => {
+  const pool = new Pool(getDbConfig());
+  
+  try {
+    const userId = req.user.id;
+    
+    const characterQuery = `
+      WITH character_data AS (
+        SELECT 
+          c.*,
+          cc.display_name as class_name,
+          cc.base_stats as class_base_stats,
+          cc.description as class_description,
+          cc.skills as class_skills,
+          u.email,
+          u.username,
+          u.created_at as user_created_at
+        FROM characters c
+        JOIN character_classes cc ON c.class_id = cc.id
+        JOIN users u ON c.user_id = u.id
+        WHERE c.user_id = $1
+      ),
+      character_stats AS (
+        SELECT calculate_character_stats(c.id) as calculated_stats
+        FROM characters c
+        WHERE c.user_id = $1
+      ),
+      inventory_data AS (
+        SELECT 
+          ci.*,
+          i.name as item_name,
+          i.display_name as item_display_name,
+          i.description as item_description,
+          i.level_requirement,
+          i.base_stats as item_base_stats,
+          i.rarity_id,
+          r.name as rarity_name,
+          r.display_name as rarity_display_name,
+          r.color as rarity_color,
+          it.name as item_type_name,
+          it.display_name as item_type_display_name,
+          it.equip_slot
+        FROM character_inventory ci
+        JOIN items i ON ci.item_id = i.id
+        JOIN rarities r ON i.rarity_id = r.id
+        JOIN item_types it ON i.type_id = it.id
+        WHERE ci.character_id = (SELECT id FROM characters WHERE user_id = $1)
+      ),
+      equipped_items AS (
+        SELECT 
+          ci.*,
+          i.name as item_name,
+          i.display_name as item_display_name,
+          i.description as item_description,
+          i.level_requirement,
+          i.base_stats as item_base_stats,
+          i.rarity_id,
+          r.name as rarity_name,
+          r.display_name as rarity_display_name,
+          r.color as rarity_color,
+          it.name as item_type_name,
+          it.display_name as item_type_display_name,
+          it.equip_slot
+        FROM character_inventory ci
+        JOIN items i ON ci.item_id = i.id
+        JOIN rarities r ON i.rarity_id = r.id
+        JOIN item_types it ON i.type_id = it.id
+        WHERE ci.character_id = (SELECT id FROM characters WHERE user_id = $1)
+          AND ci.equipped = true
+      ),
+      skills_data AS (
+        SELECT 
+          s.*,
+          cs.level as learned_level,
+          cs.learned_at,
+          cs.upgraded_at
+        FROM skills s
+        LEFT JOIN character_skills cs ON s.id = cs.skill_id 
+          AND cs.character_id = (SELECT id FROM characters WHERE user_id = $1)
+        WHERE s.class_id = (SELECT class_id FROM characters WHERE user_id = $1)
+           OR s.class_id IS NULL
+        ORDER BY s.level_requirement ASC
+      ),
+      achievements_data AS (
+        SELECT 
+          a.*,
+          ca.unlocked_at,
+          ca.progress
+        FROM achievements a
+        LEFT JOIN character_achievements ca ON a.id = ca.achievement_id 
+          AND ca.character_id = (SELECT id FROM characters WHERE user_id = $1)
+        ORDER BY a.level_requirement ASC
+      )
+      SELECT 
+        (SELECT row_to_json(character_data) FROM character_data) as character,
+        (SELECT calculated_stats FROM character_stats) as calculated_stats,
+        (SELECT array_agg(row_to_json(inventory_data)) FROM inventory_data) as inventory,
+        (SELECT array_agg(row_to_json(equipped_items)) FROM equipped_items) as equipped_items,
+        (SELECT array_agg(row_to_json(skills_data)) FROM skills_data) as skills,
+        (SELECT array_agg(row_to_json(achievements_data)) FROM achievements_data) as achievements
+    `;
+    
+    const result = await pool.query(characterQuery, [userId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Personnage non trouvé' });
+    }
+    
+    const data = result.rows[0];
+    
+    const optimizedResponse = {
+      character: {
+        ...data.character,
+        stats: data.calculated_stats,
+        inventory: data.inventory || [],
+        equipped_items: data.equipped_items || [],
+        skills: data.skills || [],
+        achievements: data.achievements || []
+      },
+      metadata: {
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+      }
+    };
+    
+    res.json(optimizedResponse);
+    
+  } catch (error) {
+    console.error('Erreur character optimisé:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    await pool.end();
+  }
+});
+
+// Helper pour la configuration de la base de données
+function getDbConfig() {
+  if (process.env.DATABASE_URL) {
+    return { 
+      connectionString: process.env.DATABASE_URL, 
+      ssl: { rejectUnauthorized: false, require: true } 
+    };
+  }
+  const useSsl = process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production';
+  return {
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT || '5432', 10),
+    database: process.env.DB_NAME,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    ssl: useSsl ? { rejectUnauthorized: false, require: true } : false
+  };
+}
 
 module.exports = router;
 

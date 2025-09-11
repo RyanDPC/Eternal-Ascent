@@ -1,8 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { User, Package, Star, BookOpen } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  User, 
+  Package, 
+  BookOpen, 
+  Trophy, 
+  Sword,
+  Shield,
+  Zap,
+  Heart,
+  Brain,
+  Star,
+  Settings
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import databaseService from '../../services/databaseService';
+import apiService from '../../services/apiService';
 import CharacterOverview from './overview/CharacterOverview';
 import CharacterInventory from './inventory/CharacterInventory';
 import SkillTree from './skills/SkillTree';
@@ -36,7 +48,6 @@ const Character = () => {
   
   useEffect(() => {
     const loadCharacterData = async () => {
-      // Éviter les appels multiples
       if (hasLoaded || !user || !user.id) {
         return;
       }
@@ -45,26 +56,27 @@ const Character = () => {
         setLoading(true);
         setHasLoaded(true);
         
-        const [characterData, profileData] = await Promise.all([
-          databaseService.getCurrentCharacterData(),
-          databaseService.getUserProfile()
-        ]);
-
-        // Récupérer les stats calculées via service avec l'id du personnage
-        const characterId = (characterData?.character?.id) || characterData?.id || user?.character?.id;
-        try {
-          const stats = await databaseService.getCharacterStats(characterId);
-          const final = stats.calculated || stats;
-          setCharacter({ ...characterData });
-          setFinalStats(final);
-        } catch (statsError) {
-          console.warn('Stats API non disponible, utilisation des stats de base');
-          setCharacter(characterData);
+        // Utiliser l'API optimisée pour charger toutes les données en une fois
+        const response = await apiService.getCharacterPageData();
+        
+        if (response && response.character) {
+          setCharacter(response.character);
+          setFinalStats(response.character.stats || response.character);
+          
+          // Charger l'inventaire si disponible
+          if (response.inventory) {
+            processInventoryData(response.inventory);
+          }
+          
+          // Charger les compétences si disponibles
+          if (response.skills) {
+            // Les compétences seront gérées par les composants enfants
+          }
+        } else {
+          setError('Aucun personnage trouvé');
         }
-
-        setUserProfile(profileData);
-        console.log('Character data:', characterData);
-        console.log('User profile data:', profileData);
+        
+        console.log('Character data loaded:', response);
       } catch (err) {
         console.error('Erreur lors du chargement du personnage:', err);
         setError('Impossible de charger les données du personnage');
@@ -315,41 +327,219 @@ const Character = () => {
           <User size={16} /> Vue d'ensemble
         </button>
         <button 
+          className={`tab-button ${selectedSection === 'stats' ? 'active' : ''}`}
+          onClick={() => setSelectedSection('stats')}
+        >
+          <Brain size={16} /> Statistiques
+        </button>
+        <button 
           className={`tab-button ${selectedSection === 'inventory3d' ? 'active' : ''}`}
           onClick={() => setSelectedSection('inventory3d')}
         >
-          <Package size={16} /> Inventaire 3D
+          <Package size={16} /> Inventaire
         </button>
         <button 
           className={`tab-button ${selectedSection === 'skills' ? 'active' : ''}`}
           onClick={() => setSelectedSection('skills')}
         >
-          <Star size={16} /> Compétences
+          <BookOpen size={16} /> Compétences
+        </button>
+        <button 
+          className={`tab-button ${selectedSection === 'achievements' ? 'active' : ''}`}
+          onClick={() => setSelectedSection('achievements')}
+        >
+          <Trophy size={16} /> Succès
+        </button>
+        <button 
+          className={`tab-button ${selectedSection === 'equipment' ? 'active' : ''}`}
+          onClick={() => setSelectedSection('equipment')}
+        >
+          <Sword size={16} /> Équipement
         </button>
         <button 
           className={`tab-button ${selectedSection === 'spells' ? 'active' : ''}`}
           onClick={() => setSelectedSection('spells')}
         >
-          <BookOpen size={16} /> Sorts
+          <Zap size={16} /> Sorts
         </button>
       </motion.div>
 
-      {/* Contenu des sections */}
-      {selectedSection === 'overview' && (
-        <CharacterOverview {...commonProps} />
-      )}
+      {/* Contenu des sections avec animations */}
+      <div className="character-content">
+        <AnimatePresence mode="wait">
+          {selectedSection === 'overview' && (
+            <motion.div
+              key="overview"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <CharacterOverview {...commonProps} />
+            </motion.div>
+          )}
 
-      {selectedSection === 'inventory3d' && (
-        <CharacterInventory {...commonProps} />
-      )}
+          {selectedSection === 'stats' && (
+            <motion.div
+              key="stats"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="stats-tab"
+            >
+              <h3>Statistiques détaillées</h3>
+              <div className="detailed-stats">
+                <div className="stat-section">
+                  <h4>Stats de base</h4>
+                  <div className="stat-list">
+                    <div className="stat-item">
+                      <span>Santé:</span>
+                      <span>{finalStats?.health || character?.health || 0}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span>Mana:</span>
+                      <span>{finalStats?.mana || character?.mana || 0}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span>Attaque:</span>
+                      <span>{finalStats?.attack || character?.attack || 0}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span>Défense:</span>
+                      <span>{finalStats?.defense || character?.defense || 0}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span>Attaque magique:</span>
+                      <span>{finalStats?.magic_attack || character?.magic_attack || 0}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span>Défense magique:</span>
+                      <span>{finalStats?.magic_defense || character?.magic_defense || 0}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span>Vitesse:</span>
+                      <span>{finalStats?.speed || character?.speed || 0}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span>Taux critique:</span>
+                      <span>{((finalStats?.critical_rate || character?.critical_rate || 0) * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="stat-item">
+                      <span>Dégâts critiques:</span>
+                      <span>{((finalStats?.critical_damage || character?.critical_damage || 1) * 100).toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
-      {selectedSection === 'skills' && (
-        <SkillTree character={character} onStatsUpdate={reloadStats} />
-      )}
+          {selectedSection === 'inventory3d' && (
+            <motion.div
+              key="inventory"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <CharacterInventory {...commonProps} />
+            </motion.div>
+          )}
 
-      {selectedSection === 'spells' && (
-        <SpellBook character={character} onStatsUpdate={reloadStats} />
-      )}
+          {selectedSection === 'skills' && (
+            <motion.div
+              key="skills"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <SkillTree character={character} onStatsUpdate={reloadStats} />
+            </motion.div>
+          )}
+
+          {selectedSection === 'achievements' && (
+            <motion.div
+              key="achievements"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="achievements-tab"
+            >
+              <h3>Succès</h3>
+              <div className="achievement-progress">
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill"
+                    style={{ width: '0%' }}
+                  />
+                </div>
+                <p>0 / 0 succès débloqués</p>
+              </div>
+              <div className="achievements-grid">
+                <div className="achievement-card locked">
+                  <Trophy className="achievement-icon" />
+                  <div className="achievement-content">
+                    <h4>Premier pas</h4>
+                    <p>Créez votre premier personnage</p>
+                    <span className="achievement-rarity">Commun</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {selectedSection === 'equipment' && (
+            <motion.div
+              key="equipment"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="equipment-tab"
+            >
+              <h3>Équipement</h3>
+              <div className="equipment-grid">
+                {Object.entries(equipment).map(([slot, item]) => (
+                  <div key={slot} className="equipment-card">
+                    <div className="equipment-slot">
+                      <span className="slot-name">{slot}</span>
+                    </div>
+                    <div className="equipment-item">
+                      {item ? (
+                        <>
+                          <h4>{item.name}</h4>
+                          <p>{item.description}</p>
+                          <div className="equipment-stats">
+                            <span>Niveau: {item.level || 1}</span>
+                            <span>Rareté: {item.rarity || 'Commun'}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <p>Aucun objet équipé</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {selectedSection === 'spells' && (
+            <motion.div
+              key="spells"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <SpellBook character={character} onStatsUpdate={reloadStats} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };

@@ -1,1063 +1,472 @@
-// Service de base de données pour Eternal Ascent
+/**
+ * Service de base de données pour le client
+ * Gère toutes les interactions avec l'API backend
+ */
 class DatabaseService {
   constructor() {
     this.baseURL = 'http://localhost:3001/api';
-    this.isConnected = false;
+    this.token = localStorage.getItem('authToken');
   }
 
-  // Vérifier la connexion à la base de données
-  async checkConnection() {
-    try {
-      const response = await fetch(`${this.baseURL}/health`);
-      const data = await response.json();
-      this.isConnected = data.status === 'ok';
-      return this.isConnected;
-    } catch (error) {
-      console.error('Erreur de connexion à la base de données:', error);
-      this.isConnected = false;
-      return false;
+  // Helper pour les requêtes authentifiées
+  async authenticatedRequest(endpoint, options = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
     }
+
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      ...options,
+      headers
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Erreur inconnue' }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
   }
 
-  // Authentification des utilisateurs
-  async authenticateUser(credentials) {
+  // ===== AUTHENTIFICATION =====
+  async login(username, password) {
     try {
       const response = await fetch(`${this.baseURL}/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
       });
 
-      if (!response.ok) {
-        throw new Error('Échec de l\'authentification');
-      }
-
       const data = await response.json();
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('userData', JSON.stringify(data.user));
       
-      return data;
+      if (response.ok) {
+        this.setToken(data.token);
+        return data;
+      } else {
+        throw new Error(data.error || 'Erreur de connexion');
+      }
     } catch (error) {
-      console.error('Erreur d\'authentification:', error);
+      console.error('Erreur de connexion:', error);
       throw error;
     }
   }
 
-  // Créer un nouveau compte utilisateur
-  async createUser(userData) {
+  async register(userData) {
     try {
       const response = await fetch(`${this.baseURL}/auth/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
       });
 
-      if (!response.ok) {
-        throw new Error('Échec de la création du compte');
-      }
-
       const data = await response.json();
-      return data;
+      
+      if (response.ok) {
+        this.setToken(data.token);
+        return data;
+      } else {
+        throw new Error(data.error || 'Erreur d\'inscription');
+      }
     } catch (error) {
-      console.error('Erreur de création de compte:', error);
+      console.error('Erreur d\'inscription:', error);
       throw error;
     }
   }
 
-  // Récupérer les données du personnage
-  async getCharacterData(characterId) {
+  async logout() {
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération des données du personnage');
-      }
-
-      const data = await response.json();
-      // Unwrap when API returns { success, character }
-      return data.character || data;
+      await this.authenticatedRequest('/auth/logout', { method: 'POST' });
     } catch (error) {
-      console.error('Erreur de récupération du personnage:', error);
+      console.error('Erreur de déconnexion:', error);
+    } finally {
+      this.clearToken();
+    }
+  }
+
+  // ===== PERSONNAGES =====
+  async getCharacters() {
+    try {
+      return await this.authenticatedRequest('/characters');
+    } catch (error) {
+      console.error('Erreur lors du chargement des personnages:', error);
       throw error;
     }
   }
 
-  // Récupérer le personnage courant (via JWT)
-  async getCurrentCharacterData() {
+  async getCharacter(characterId) {
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/current`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération du personnage courant');
-      }
-
-      const data = await response.json();
-      return data.character || data;
+      return await this.authenticatedRequest(`/characters/${characterId}`);
     } catch (error) {
-      console.error('Erreur de récupération du personnage courant:', error);
+      console.error('Erreur lors du chargement du personnage:', error);
       throw error;
     }
   }
 
-  // Sauvegarder les données du personnage
-  async saveCharacterData(characterData) {
+  async createCharacter(characterData) {
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterData.id}`, {
+      return await this.authenticatedRequest('/characters', {
+        method: 'POST',
+        body: JSON.stringify(characterData)
+      });
+    } catch (error) {
+      console.error('Erreur lors de la création du personnage:', error);
+      throw error;
+    }
+  }
+
+  async updateCharacter(characterId, characterData) {
+    try {
+      return await this.authenticatedRequest(`/characters/${characterId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(characterData),
+        body: JSON.stringify(characterData)
       });
-
-      if (!response.ok) {
-        throw new Error('Échec de la sauvegarde du personnage');
-      }
-
-      return await response.json();
     } catch (error) {
-      console.error('Erreur de sauvegarde du personnage:', error);
+      console.error('Erreur lors de la mise à jour du personnage:', error);
       throw error;
     }
   }
 
-  // Récupérer l'inventaire du personnage
-  async getCharacterInventory(characterId) {
+  async deleteCharacter(characterId) {
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/inventory`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      return await this.authenticatedRequest(`/characters/${characterId}`, {
+        method: 'DELETE'
       });
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération de l\'inventaire');
-      }
-
-      const data = await response.json();
-      // Unwrap when API returns { success, inventory }
-      return Array.isArray(data) ? data : (data.inventory || []);
     } catch (error) {
-      console.error('Erreur de récupération de l\'inventaire:', error);
+      console.error('Erreur lors de la suppression du personnage:', error);
       throw error;
     }
   }
 
-  // Récupérer les informations utilisateur
-  async getUserProfile() {
+  // ===== INVENTAIRE =====
+  async getInventory(characterId) {
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/user/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération du profil utilisateur');
-      }
-
-      return await response.json();
+      return await this.authenticatedRequest(`/characters/${characterId}/inventory`);
     } catch (error) {
-      console.error('Erreur de récupération du profil utilisateur:', error);
+      console.error('Erreur lors du chargement de l\'inventaire:', error);
       throw error;
     }
   }
 
-  // Sauvegarder l'inventaire du personnage
-  async saveCharacterInventory(characterId, inventoryData) {
+  async updateInventory(characterId, inventoryData) {
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/inventory`, {
+      return await this.authenticatedRequest(`/characters/${characterId}/inventory`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(inventoryData),
+        body: JSON.stringify(inventoryData)
       });
-
-      if (!response.ok) {
-        throw new Error('Échec de la sauvegarde de l\'inventaire');
-      }
-
-      return await response.json();
     } catch (error) {
-      console.error('Erreur de sauvegarde de l\'inventaire:', error);
+      console.error('Erreur lors de la mise à jour de l\'inventaire:', error);
       throw error;
     }
   }
 
-  // Équiper un objet
   async equipItem(characterId, itemId, slot) {
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/equip`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ item_id: itemId, slot }),
+      return await this.authenticatedRequest(`/characters/${characterId}/equip`, {
+        method: 'POST',
+        body: JSON.stringify({ itemId, slot })
       });
-
-      if (!response.ok) {
-        throw new Error('Échec de l\'équipement de l\'objet');
-      }
-
-      return await response.json();
     } catch (error) {
-      console.error('Erreur d\'équipement de l\'objet:', error);
+      console.error('Erreur lors de l\'équipement:', error);
       throw error;
     }
   }
 
-  // Déséquiper un objet
   async unequipItem(characterId, slot) {
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/unequip`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ item_id: slot }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Échec du déséquipement de l\'objet');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur de déséquipement de l\'objet:', error);
-      throw error;
-    }
-  }
-
-  // Récupérer les donjons disponibles
-  async getAvailableDungeons() {
-    try {
-      const response = await fetch(`${this.baseURL}/static/dungeons`);
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération des donjons');
-      }
-
-      const data = await response.json();
-      return Array.isArray(data) ? data : (data.dungeons || []);
-    } catch (error) {
-      console.error('Erreur de récupération des donjons:', error);
-      throw error;
-    }
-  }
-
-  // Récupérer toutes les difficultés
-  async getDifficulties() {
-    try {
-      const response = await fetch(`${this.baseURL}/static/difficulties`);
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération des difficultés');
-      }
-
-      const data = await response.json();
-      return Array.isArray(data) ? data : (data.difficulties || []);
-    } catch (error) {
-      console.error('Erreur de récupération des difficultés:', error);
-      throw error;
-    }
-  }
-
-  // Récupérer les stats calculées d'un personnage avec équipement
-  async getCharacterStats(characterId) {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/stats`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération des stats du personnage');
-      }
-
-      const data = await response.json();
-      // Normalize possible shapes
-      return data.final_stats || data.stats || data;
-    } catch (error) {
-      console.error('Erreur de récupération des stats du personnage:', error);
-      throw error;
-    }
-  }
-
-  // Sauvegarder une session de combat
-  async saveCombatSession(combatData) {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/combat-sessions`, {
+      return await this.authenticatedRequest(`/characters/${characterId}/unequip`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(combatData),
+        body: JSON.stringify({ slot })
       });
-
-      if (!response.ok) {
-        throw new Error('Échec de la sauvegarde de la session de combat');
-      }
-
-      return await response.json();
     } catch (error) {
-      console.error('Erreur de sauvegarde de la session de combat:', error);
+      console.error('Erreur lors du déséquipement:', error);
       throw error;
     }
   }
 
-  // Récupérer l'historique des combats
-  async getCombatHistory(characterId, limit = 10) {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/combat-history?limit=${limit}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération de l\'historique des combats');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur de récupération de l\'historique des combats:', error);
-      throw error;
-    }
-  }
-
-  // Récupérer les quêtes disponibles
-  async getAvailableQuests() {
-    try {
-      const response = await fetch(`${this.baseURL}/static/quests`);
-
-      if (!response.ok) {
-        throw new Error('Échec de récupération des quêtes');
-      }
-
-      const data = await response.json();
-      return Array.isArray(data) ? data : (data.quests || []);
-    } catch (error) {
-      console.error('Erreur de récupération des quêtes:', error);
-      throw error;
-    }
-  }
-
-  // Mettre à jour la progression d'une quête
-  async updateQuestProgress(characterId, questId, progress) {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/quests/${questId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ progress }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Échec de la mise à jour de la progression de la quête');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur de mise à jour de la progression de la quête:', error);
-      throw error;
-    }
-  }
-
-  // Sauvegarder automatiquement (appelé périodiquement)
-  async autoSave(characterData) {
-    try {
-      await this.saveCharacterData(characterData);
-      console.log('Sauvegarde automatique réussie');
-      return true;
-    } catch (error) {
-      console.error('Échec de la sauvegarde automatique:', error);
-      return false;
-    }
-  }
-
-  // Déconnexion
-  logout() {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
-    this.isConnected = false;
-  }
-
-  // Vérifier si l'utilisateur est connecté
-  isAuthenticated() {
-    const token = localStorage.getItem('authToken');
-    return !!token;
-  }
-
-  // Récupérer les données utilisateur stockées
-  getStoredUserData() {
-    const userData = localStorage.getItem('userData');
-    return userData ? JSON.parse(userData) : null;
-  }
-
-  // =====================================================
-  // MÉTHODES POUR LES DONJONS
-  // =====================================================
-
-  // Récupérer tous les donjons disponibles
+  // ===== DONJONS =====
   async getDungeons() {
     try {
-      const response = await fetch(`${this.baseURL}/dungeons`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des donjons');
-      }
-      return await response.json();
+      return await this.authenticatedRequest('/dungeons');
     } catch (error) {
-      console.error('Erreur lors de la récupération des donjons:', error);
+      console.error('Erreur lors du chargement des donjons:', error);
       throw error;
     }
   }
 
-  // Récupérer un donjon spécifique avec ses ennemis
-  async getDungeonById(dungeonId) {
+  async getDungeon(dungeonId) {
     try {
-      const response = await fetch(`${this.baseURL}/dungeons/${dungeonId}`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération du donjon');
-      }
-      return await response.json();
+      return await this.authenticatedRequest(`/dungeons/${dungeonId}`);
     } catch (error) {
-      console.error('Erreur lors de la récupération du donjon:', error);
+      console.error('Erreur lors du chargement du donjon:', error);
       throw error;
     }
   }
 
-  // Terminer un donjon et récupérer les récompenses
-  async completeDungeon(dungeonId) {
+  async startDungeon(characterId, dungeonId, difficulty = 'normal') {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/dungeons/${dungeonId}/complete`, {
+      return await this.authenticatedRequest('/dungeons/start', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+        body: JSON.stringify({ characterId, dungeonId, difficulty })
       });
+    } catch (error) {
+      console.error('Erreur lors du démarrage du donjon:', error);
+      throw error;
+    }
+  }
 
-      if (!response.ok) {
-        throw new Error('Erreur lors de la completion du donjon');
-      }
-
-      return await response.json();
+  async completeDungeon(characterId, dungeonId, results) {
+    try {
+      return await this.authenticatedRequest('/dungeons/complete', {
+        method: 'POST',
+        body: JSON.stringify({ characterId, dungeonId, results })
+      });
     } catch (error) {
       console.error('Erreur lors de la completion du donjon:', error);
       throw error;
     }
   }
 
-  // =====================================================
-  // MÉTHODES POUR LES GUILDES
-  // =====================================================
+  // ===== QUÊTES =====
+  async getQuests(characterId) {
+    try {
+      return await this.authenticatedRequest(`/characters/${characterId}/quests`);
+    } catch (error) {
+      console.error('Erreur lors du chargement des quêtes:', error);
+      throw error;
+    }
+  }
 
-  // Récupérer toutes les guildes
+  async getQuest(questId) {
+    try {
+      return await this.authenticatedRequest(`/quests/${questId}`);
+    } catch (error) {
+      console.error('Erreur lors du chargement de la quête:', error);
+      throw error;
+    }
+  }
+
+  async acceptQuest(characterId, questId) {
+    try {
+      return await this.authenticatedRequest(`/characters/${characterId}/quests/accept`, {
+        method: 'POST',
+        body: JSON.stringify({ questId })
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'acceptation de la quête:', error);
+      throw error;
+    }
+  }
+
+  async completeQuest(characterId, questId) {
+    try {
+      return await this.authenticatedRequest(`/characters/${characterId}/quests/complete`, {
+        method: 'POST',
+        body: JSON.stringify({ questId })
+      });
+    } catch (error) {
+      console.error('Erreur lors de la completion de la quête:', error);
+      throw error;
+    }
+  }
+
+  // ===== GUILDES =====
   async getGuilds() {
     try {
-      console.log('🔍 Tentative de récupération des guildes depuis:', `${this.baseURL}/guilds`);
-      const response = await fetch(`${this.baseURL}/guilds`);
-      console.log('📡 Réponse reçue:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log('✅ Données des guildes reçues:', data);
-      return data;
+      return await this.authenticatedRequest('/guilds');
     } catch (error) {
-      console.error('❌ Erreur lors de la récupération des guildes:', error);
+      console.error('Erreur lors du chargement des guildes:', error);
       throw error;
     }
   }
 
-  // Générer des guildes dynamiques
-  async generateDynamicGuilds(count = 3) {
-    try {
-      console.log('🎲 Génération de guildes dynamiques:', count);
-      const response = await fetch(`${this.baseURL}/guilds/generate-dynamic`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ count })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log('✅ Guildes dynamiques générées:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ Erreur lors de la génération de guildes dynamiques:', error);
-      throw error;
-    }
-  }
-
-  // Récupérer une guilde spécifique
   async getGuild(guildId) {
     try {
-      const response = await fetch(`${this.baseURL}/guilds/${guildId}`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération de la guilde');
-      }
-      return await response.json();
+      return await this.authenticatedRequest(`/guilds/${guildId}`);
     } catch (error) {
-      console.error('Erreur lors de la récupération de la guilde:', error);
+      console.error('Erreur lors du chargement de la guilde:', error);
       throw error;
     }
   }
 
-  // Créer une nouvelle guilde
   async createGuild(guildData) {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/guilds`, {
+      return await this.authenticatedRequest('/guilds', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(guildData)
       });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la création de la guilde');
-      }
-
-      return await response.json();
     } catch (error) {
       console.error('Erreur lors de la création de la guilde:', error);
       throw error;
     }
   }
 
-  // Rejoindre une guilde
-  async joinGuild(guildId) {
+  async joinGuild(characterId, guildId) {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/guilds/${guildId}/join`, {
+      return await this.authenticatedRequest(`/characters/${characterId}/guild/join`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+        body: JSON.stringify({ guildId })
       });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de l\'adhésion à la guilde');
-      }
-
-      return await response.json();
     } catch (error) {
       console.error('Erreur lors de l\'adhésion à la guilde:', error);
       throw error;
     }
   }
 
-  // Quitter une guilde
-  async leaveGuild(guildId) {
+  async leaveGuild(characterId) {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/guilds/${guildId}/leave`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+      return await this.authenticatedRequest(`/characters/${characterId}/guild/leave`, {
+        method: 'POST'
       });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la sortie de la guilde');
-      }
-
-      return await response.json();
     } catch (error) {
       console.error('Erreur lors de la sortie de la guilde:', error);
       throw error;
     }
   }
 
-  // Récupérer les raids de guilde
-  async getGuildRaids(guildId) {
+  // ===== COMPÉTENCES ET TALENTS =====
+  async getSkills(characterId) {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/guilds/${guildId}/raids`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des raids');
-      }
-
-      return await response.json();
+      return await this.authenticatedRequest(`/characters/${characterId}/skills`);
     } catch (error) {
-      console.error('Erreur lors de la récupération des raids:', error);
+      console.error('Erreur lors du chargement des compétences:', error);
       throw error;
     }
   }
 
-  // Démarrer un raid de guilde
-  async startGuildRaid(guildId, raidData) {
+  async getTalents(characterId) {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
+      return await this.authenticatedRequest(`/characters/${characterId}/talents`);
+    } catch (error) {
+      console.error('Erreur lors du chargement des talents:', error);
+      throw error;
+    }
+  }
 
-      const response = await fetch(`${this.baseURL}/guilds/${guildId}/raids`, {
+  async upgradeSkill(characterId, skillId) {
+    try {
+      return await this.authenticatedRequest(`/characters/${characterId}/skills/upgrade`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(raidData)
+        body: JSON.stringify({ skillId })
       });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors du démarrage du raid');
-      }
-
-      return await response.json();
     } catch (error) {
-      console.error('Erreur lors du démarrage du raid:', error);
+      console.error('Erreur lors de l\'amélioration de la compétence:', error);
       throw error;
     }
   }
 
-  // Rejoindre un raid de guilde
-  async joinGuildRaid(raidId) {
+  async upgradeTalent(characterId, talentId) {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/guild-raids/${raidId}/join`, {
+      return await this.authenticatedRequest(`/characters/${characterId}/talents/upgrade`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+        body: JSON.stringify({ talentId })
       });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de l\'adhésion au raid');
-      }
-
-      return await response.json();
     } catch (error) {
-      console.error('Erreur lors de l\'adhésion au raid:', error);
+      console.error('Erreur lors de l\'amélioration du talent:', error);
       throw error;
     }
   }
 
-  // Récupérer les projets de guilde
-  async getGuildProjects(guildId) {
+  // ===== COMBAT =====
+  async startCombat(characterId, enemyId) {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/guilds/${guildId}/projects`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des projets');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de la récupération des projets:', error);
-      throw error;
-    }
-  }
-
-  // Démarrer un projet de guilde
-  async startGuildProject(guildId, projectData) {
-    try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/guilds/${guildId}/projects`, {
+      return await this.authenticatedRequest('/combat/start', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(projectData)
+        body: JSON.stringify({ characterId, enemyId })
       });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors du démarrage du projet');
-      }
-
-      return await response.json();
     } catch (error) {
-      console.error('Erreur lors du démarrage du projet:', error);
+      console.error('Erreur lors du démarrage du combat:', error);
       throw error;
     }
   }
 
-  // Contribuer à un projet de guilde
-  async contributeToGuildProject(projectId, contribution) {
+  async performAction(combatId, action) {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/guild-projects/${projectId}/contribute`, {
+      return await this.authenticatedRequest(`/combat/${combatId}/action`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ contribution })
+        body: JSON.stringify(action)
       });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la contribution au projet');
-      }
-
-      return await response.json();
     } catch (error) {
-      console.error('Erreur lors de la contribution au projet:', error);
+      console.error('Erreur lors de l\'action de combat:', error);
       throw error;
     }
   }
 
-  // Récupérer les événements de guilde
-  async getGuildEvents(guildId) {
+  // ===== STATISTIQUES =====
+  async getCharacterStats(characterId) {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/guilds/${guildId}/events`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des événements');
-      }
-
-      return await response.json();
+      return await this.authenticatedRequest(`/characters/${characterId}/stats`);
     } catch (error) {
-      console.error('Erreur lors de la récupération des événements:', error);
+      console.error('Erreur lors du chargement des statistiques:', error);
       throw error;
     }
   }
 
-  // Créer un événement de guilde
-  async createGuildEvent(guildId, eventData) {
+  async getLeaderboard(type = 'level') {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/guilds/${guildId}/events`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(eventData)
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de la création de l\'événement');
-      }
-
-      return await response.json();
+      return await this.authenticatedRequest(`/leaderboard/${type}`);
     } catch (error) {
-      console.error('Erreur lors de la création de l\'événement:', error);
+      console.error('Erreur lors du chargement du classement:', error);
       throw error;
     }
   }
 
-  // =====================================================
-  // MÉTHODES POUR LES TALENTS
-  // =====================================================
+  // ===== UTILITAIRES =====
+  setToken(token) {
+    this.token = token;
+    localStorage.setItem('authToken', token);
+  }
 
-  // Récupérer tous les arbres de talents
-  async getTalentTrees() {
+  clearToken() {
+    this.token = null;
+    localStorage.removeItem('authToken');
+  }
+
+  isAuthenticated() {
+    return !!this.token;
+  }
+
+  // ===== DONNÉES STATIQUES =====
+  async getStaticData() {
     try {
-      const response = await fetch(`${this.baseURL}/talents/trees`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des arbres de talents');
-      }
-      return await response.json();
+      return await this.authenticatedRequest('/static');
     } catch (error) {
-      console.error('Erreur lors de la récupération des arbres de talents:', error);
+      console.error('Erreur lors du chargement des données statiques:', error);
       throw error;
     }
   }
 
-  // Récupérer l'arbre de talents par classe
-  async getTalentTreeByClass(className) {
+  async getItemTypes() {
     try {
-      const response = await fetch(`${this.baseURL}/talents/trees/${className}`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération de l\'arbre de talents');
-      }
-      return await response.json();
+      return await this.authenticatedRequest('/static/item-types');
     } catch (error) {
-      console.error('Erreur lors de la récupération de l\'arbre de talents:', error);
+      console.error('Erreur lors du chargement des types d\'objets:', error);
       throw error;
     }
   }
 
-  // Apprendre un talent
-  async learnTalent(characterId, talentId) {
+  async getCharacterClasses() {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/talents/${talentId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de l\'apprentissage du talent');
-      }
-
-      return await response.json();
+      return await this.authenticatedRequest('/static/character-classes');
     } catch (error) {
-      console.error('Erreur lors de l\'apprentissage du talent:', error);
+      console.error('Erreur lors du chargement des classes de personnage:', error);
       throw error;
     }
   }
 
-  // =====================================================
-  // MÉTHODES POUR LES ENNEMIS
-  // =====================================================
-
-  // Récupérer tous les ennemis
-  async getEnemies() {
+  async getRarities() {
     try {
-      const response = await fetch(`${this.baseURL}/enemies`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des ennemis');
-      }
-      return await response.json();
+      return await this.authenticatedRequest('/static/rarities');
     } catch (error) {
-      console.error('Erreur lors de la récupération des ennemis:', error);
-      throw error;
-    }
-  }
-
-  // Récupérer les ennemis par niveau
-  async getEnemiesByLevel(level) {
-    try {
-      const response = await fetch(`${this.baseURL}/enemies/level/${level}`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des ennemis par niveau');
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de la récupération des ennemis par niveau:', error);
-      throw error;
-    }
-  }
-
-  // Récupérer un ennemi aléatoire par niveau
-  async getRandomEnemyByLevel(level) {
-    try {
-      const response = await fetch(`${this.baseURL}/enemies/random/level/${level}`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération d\'un ennemi aléatoire');
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de la récupération d\'un ennemi aléatoire:', error);
-      throw error;
-    }
-  }
-
-  // =====================================================
-  // MÉTHODES POUR LES COMPÉTENCES
-  // =====================================================
-
-  // Récupérer toutes les compétences
-  async getSkills() {
-    try {
-      const response = await fetch(`${this.baseURL}/skills`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des compétences');
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de la récupération des compétences:', error);
-      throw error;
-    }
-  }
-
-  // Récupérer les compétences par classe
-  async getSkillsByClass(className) {
-    try {
-      const response = await fetch(`${this.baseURL}/skills/class/${className}`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des compétences');
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de la récupération des compétences:', error);
-      throw error;
-    }
-  }
-
-  // =====================================================
-  // MÉTHODES POUR L'ÉQUIPEMENT
-  // =====================================================
-
-  // Récupérer tous les sets d'équipement
-  async getEquipmentSets() {
-    try {
-      const response = await fetch(`${this.baseURL}/equipment/sets`);
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des sets d\'équipement');
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de la récupération des sets d\'équipement:', error);
-      throw error;
-    }
-  }
-
-  // Améliorer un équipement
-  async upgradeEquipment(characterId, itemId, materials) {
-    try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/equipment/${itemId}/upgrade`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ materials })
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de l\'amélioration de l\'équipement');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de l\'amélioration de l\'équipement:', error);
-      throw error;
-    }
-  }
-
-  // Enchanter un équipement
-  async enchantEquipment(characterId, itemId, enchantmentName) {
-    try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Token d\'authentification manquant');
-      }
-
-      const response = await fetch(`${this.baseURL}/characters/${characterId}/equipment/${itemId}/enchant`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ enchantmentName })
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de l\'enchantement de l\'équipement');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de l\'enchantement de l\'équipement:', error);
+      console.error('Erreur lors du chargement des raretés:', error);
       throw error;
     }
   }
 }
 
-// Créer une instance singleton
+// Instance singleton
 const databaseService = new DatabaseService();
-
 export default databaseService;

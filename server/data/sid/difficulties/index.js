@@ -4,7 +4,7 @@
 
 class DifficultyManager {
   constructor() {
-    this.difficulties = [];
+    this.difficulties = this.generateDifficulties();
   }
 
   generateDifficulties() {
@@ -63,6 +63,50 @@ class DifficultyManager {
         exp_multiplier: 2.0,
         gold_multiplier: 2.0,
         order: 5
+      },
+      {
+        name: 'normal',
+        display_name: 'Normal',
+        color: '#fdcb6e',
+        icon: '🟡',
+        description: 'Difficulté standard',
+        stat_multiplier: 1.0,
+        exp_multiplier: 1.0,
+        gold_multiplier: 1.0,
+        order: 2
+      },
+      {
+        name: 'nightmare',
+        display_name: 'Cauchemar',
+        color: '#8e44ad',
+        icon: '💀',
+        description: 'Un cauchemar vivant',
+        stat_multiplier: 1.8,
+        exp_multiplier: 1.8,
+        gold_multiplier: 1.8,
+        order: 6
+      },
+      {
+        name: 'hell',
+        display_name: 'Enfer',
+        color: '#e74c3c',
+        icon: '🔥',
+        description: 'Les profondeurs de l\'enfer',
+        stat_multiplier: 2.5,
+        exp_multiplier: 2.5,
+        gold_multiplier: 2.5,
+        order: 7
+      },
+      {
+        name: 'divine',
+        display_name: 'Divin',
+        color: '#f1c40f',
+        icon: '✨',
+        description: 'Le défi divin',
+        stat_multiplier: 3.0,
+        exp_multiplier: 3.0,
+        gold_multiplier: 3.0,
+        order: 8
       }
     ];
 

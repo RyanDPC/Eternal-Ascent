@@ -234,6 +234,39 @@ CREATE TABLE character_inventory (
 -- TABLES DE GAMEPLAY
 -- =====================================================
 
+-- Table des compétences (skills)
+CREATE TABLE skills (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    display_name VARCHAR(80) NOT NULL,
+    description TEXT,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('offensive', 'healing', 'defensive', 'buff', 'debuff')),
+    class VARCHAR(20) NOT NULL,
+    available_classes JSONB NOT NULL DEFAULT '[]',
+    level_requirement SMALLINT NOT NULL DEFAULT 1 CHECK (level_requirement > 0),
+    mana_cost INTEGER NOT NULL DEFAULT 0 CHECK (mana_cost >= 0),
+    cooldown SMALLINT NOT NULL DEFAULT 0 CHECK (cooldown >= 0),
+    damage JSONB DEFAULT NULL,
+    healing JSONB DEFAULT NULL,
+    shield JSONB DEFAULT NULL,
+    buffs JSONB DEFAULT NULL,
+    debuffs JSONB DEFAULT NULL,
+    effects JSONB DEFAULT '[]',
+    duration SMALLINT DEFAULT NULL,
+    icon VARCHAR(10),
+    animation VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT skills_available_classes_valid CHECK (jsonb_typeof(available_classes) = 'array'),
+    CONSTRAINT skills_damage_valid CHECK (damage IS NULL OR jsonb_typeof(damage) = 'object'),
+    CONSTRAINT skills_healing_valid CHECK (healing IS NULL OR jsonb_typeof(healing) = 'object'),
+    CONSTRAINT skills_shield_valid CHECK (shield IS NULL OR jsonb_typeof(shield) = 'object'),
+    CONSTRAINT skills_buffs_valid CHECK (buffs IS NULL OR jsonb_typeof(buffs) = 'object'),
+    CONSTRAINT skills_debuffs_valid CHECK (debuffs IS NULL OR jsonb_typeof(debuffs) = 'object'),
+    CONSTRAINT skills_effects_valid CHECK (jsonb_typeof(effects) = 'array')
+);
+
 -- Table des donjons (optimisée)
 CREATE TABLE dungeons (
     id SMALLSERIAL PRIMARY KEY,
@@ -417,6 +450,10 @@ CREATE INDEX idx_items_type_id ON items(type_id);
 CREATE INDEX idx_items_rarity_id ON items(rarity_id);
 CREATE INDEX idx_enemies_rarity_id ON enemies(rarity_id);
 CREATE INDEX idx_dungeons_difficulty_id ON dungeons(difficulty_id);
+CREATE INDEX idx_skills_class ON skills(class);
+CREATE INDEX idx_skills_type ON skills(type);
+CREATE INDEX idx_skills_level_requirement ON skills(level_requirement);
+CREATE INDEX idx_skills_available_classes_gin ON skills USING gin(available_classes);
 CREATE INDEX IF NOT EXISTS idx_combat_sessions_character_id ON combat_sessions(character_id);
 CREATE INDEX IF NOT EXISTS idx_combat_sessions_created_at ON combat_sessions(created_at);
 
@@ -484,6 +521,7 @@ CREATE TRIGGER update_character_dungeons_updated_at BEFORE UPDATE ON character_d
 CREATE TRIGGER update_character_quests_updated_at BEFORE UPDATE ON character_quests FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_guilds_updated_at BEFORE UPDATE ON guilds FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_guild_members_updated_at BEFORE UPDATE ON guild_members FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_skills_updated_at BEFORE UPDATE ON skills FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
 -- VUES OPTIMISÉES POUR LES REQUÊTES FRÉQUENTES

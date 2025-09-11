@@ -13,7 +13,6 @@ function validate(schema) {
   };
 }
 
-<<<<<<< Current (Your changes)
 /**
  * Valide le corps de la requête pour les quêtes
  */
@@ -127,12 +126,34 @@ const validateSearch = (req, res, next) => {
   next();
 };
 
+/**
+ * Valide que les paramètres requis sont présents dans le body de la requête
+ */
+const validateParams = (requiredParams) => {
+  return (req, res, next) => {
+    const missingParams = [];
+    
+    for (const param of requiredParams) {
+      if (req.body[param] === undefined || req.body[param] === null || req.body[param] === '') {
+        missingParams.push(param);
+      }
+    }
+    
+    if (missingParams.length > 0) {
+      return res.status(400).json({
+        error: 'Paramètres manquants',
+        details: `Les paramètres suivants sont requis: ${missingParams.join(', ')}`
+      });
+    }
+    
+    next();
+  };
+};
+
 module.exports = {
+  validate,
   validateParams,
   validateQuestPayload,
   validatePagination,
   validateSearch
 };
-=======
-module.exports = { validate, z };
->>>>>>> Incoming (Background Agent changes)
