@@ -2,12 +2,9 @@
 // CALCULATEUR DE STATS DE PERSONNAGE
 // =====================================================
 
-const equipmentManager = require('../data/sid/equipments');
 
 class CharacterStatsCalculator {
-  constructor() {
-    this.equipmentManager = equipmentManager;
-  }
+  constructor() {}
 
   /**
    * Calcule les stats finales d'un personnage avec équipement

@@ -3,9 +3,7 @@
  * Gère la création d'inventaires de départ selon la classe du personnage
  */
 
-const characterClasses = require('../data/sid/character_classes');
-const equipments = require('../data/sid/equipments');
-const items = require('../data/sid/items');
+const characterClasses = [];
 
 
 class StartingInventoryManager {
@@ -216,32 +214,7 @@ class StartingInventoryManager {
   /**
    * Trouve un équipement par son ID
    */
-  findEquipment(equipmentId) {
-    // Vérifier que equipments est défini
-    if (!equipments) {
-      console.error('❌ equipments is undefined in findEquipment');
-      return null;
-    }
-    
-    if (!equipments.armors || !equipments.weapons || !equipments.accessories) {
-      console.error('❌ equipments structure is incomplete:', equipments);
-      return null;
-    }
-
-    // Chercher dans les armures
-    const armor = equipments.armors.find(eq => eq.id === equipmentId);
-    if (armor) return armor;
-
-    // Chercher dans les armes
-    const weapon = equipments.weapons.find(eq => eq.id === equipmentId);
-    if (weapon) return weapon;
-
-    // Chercher dans les accessoires
-    const accessory = equipments.accessories.find(eq => eq.id === equipmentId);
-    if (accessory) return accessory;
-
-    return null;
-  }
+  findEquipment(equipmentId) { return null; }
 
   /**
    * Récupère les IDs des objets de base depuis la base de données
