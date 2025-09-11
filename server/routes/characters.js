@@ -476,20 +476,21 @@ router.put('/:id/equip', validateCharacterId, injectDataService, async (req, res
 // Supporter aussi la méthode POST pour compat frontend
 router.post('/:id/equip', validateCharacterId, injectDataService, async (req, res) => {
   try {
-    const { item_id, slot } = req.body;
+    const { item_id, itemId, slot } = req.body;
+    const resolvedItemId = item_id || itemId;
     
-    if (!item_id || !slot) {
+    if (!resolvedItemId || !slot) {
       return res.status(400).json({ error: 'item_id et slot requis' });
     }
 
     const inventory = await req.dataService.getCharacterInventory(req.characterId, false);
-    const item = inventory.find(i => i.item_id === item_id);
+    const item = inventory.find(i => i.item_id === resolvedItemId);
     
     if (!item) {
       return res.status(404).json({ error: 'Objet non trouvé dans l\'inventaire' });
     }
 
-    const equippedItem = await req.dataService.equipItem(req.characterId, item_id, slot);
+    const equippedItem = await req.dataService.equipItem(req.characterId, resolvedItemId, slot);
     
     res.json({
       success: true,
@@ -519,18 +520,27 @@ router.post('/:id/equip', validateCharacterId, injectDataService, async (req, re
  */
 router.put('/:id/unequip', validateCharacterId, injectDataService, async (req, res) => {
   try {
-    const { item_id } = req.body;
+    const { item_id, itemId, slot } = req.body;
+    const resolvedItemId = item_id || itemId || null;
     
-    if (!item_id) {
-      return res.status(400).json({ error: 'item_id requis' });
+    if (!resolvedItemId && !slot) {
+      return res.status(400).json({ error: 'item_id ou slot requis' });
     }
 
     const client = await req.dataService.pool.connect();
     try {
-      const result = await client.query(
-        'UPDATE character_inventory SET equipped = false, equipped_slot = NULL WHERE character_id = $1 AND item_id = $2 RETURNING *',
-        [req.characterId, item_id]
-      );
+      let result;
+      if (resolvedItemId) {
+        result = await client.query(
+          'UPDATE character_inventory SET equipped = false, equipped_slot = NULL WHERE character_id = $1 AND item_id = $2 RETURNING *',
+          [req.characterId, resolvedItemId]
+        );
+      } else {
+        result = await client.query(
+          'UPDATE character_inventory SET equipped = false, equipped_slot = NULL WHERE character_id = $1 AND equipped_slot = $2 RETURNING *',
+          [req.characterId, slot]
+        );
+      }
       
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Objet non trouvé ou non équipé' });
