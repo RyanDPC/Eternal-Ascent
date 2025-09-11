@@ -11,8 +11,8 @@ const logger = require('./services/Logger');
 const { validate } = require('./middleware/validation');
 const { z } = require('zod');
 
-// Services optimisés
-const OptimizedDataService = require('./services/databaseService');
+// Services
+const DataService = require('./services/databaseService');
 const CacheService = require('./services/CacheService');
 const QuestSystem = require('./systems/quests');
 const WebSocketManager = require('./websocket/WebSocketManager');
@@ -24,6 +24,7 @@ const CharacterProvisioningService = require('./services/CharacterProvisioningSe
 const staticRoutes = require('./routes/static');
 const systemsRoutes = require('./routes/systems');
 const talentsRoutes = require('./routes/talents');
+const charactersRoutes = require('./routes/characters');
 const combatRoutes = require('./routes/combat');
 const docsRoutes = require('./routes/docs');
 const adminRoutes = require('./routes/admin');
@@ -256,6 +257,7 @@ app.get('/api/metrics', async (req, res) => {
 // Routes des données statiques et pages optimisées
 app.use('/api/static', staticRoutes);
 app.use('/api/talents', talentsRoutes);
+app.use('/api/characters', charactersRoutes);
 app.use('/api', combatRoutes);
 app.use('/api', docsRoutes);
 app.use('/api', adminRoutes);
@@ -1008,7 +1010,7 @@ async function startServer() {
     console.log('🚀 Démarrage du serveur Eternal Ascent ULTRA-OPTIMISÉ...');
     
     // Initialiser les services
-    dataService = new OptimizedDataService();
+    dataService = new DataService();
     cacheService = new CacheService();
     
     // Injecter les services dans l'app
