@@ -24,7 +24,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import optimizedApiService from '../../services/apiService';
 import './Dashboard.css';
 
-const OptimizedDashboardV2 = () => {
+const DashboardPage = () => {
   const { user, character: authCharacter } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -482,4 +482,4 @@ const OptimizedDashboardV2 = () => {
   );
 };
 
-export default OptimizedDashboardV2;
+export default DashboardPage;

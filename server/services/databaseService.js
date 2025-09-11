@@ -13,7 +13,7 @@ const path = require('path');
  * - Index composites
  * - Pagination intelligente
  */
-class OptimizedDataService {
+class DataService {
   constructor() {
     // Configuration optimisée pour Render PostgreSQL
     const dbConfig = this.getDatabaseConfig();
@@ -627,7 +627,7 @@ class OptimizedDataService {
    * Initialise le service avec préchargement du cache et retry
    */
   async initialize() {
-    console.log('🚀 Initializing OptimizedDataService...');
+    console.log('🚀 Initializing DataService...');
     
     // Tester la connexion avec retry
     await this.testConnectionWithRetry();
@@ -653,7 +653,7 @@ class OptimizedDataService {
       console.warn('⚠️ Cache preload failed, continuing without cache:', error.message);
     }
     
-    console.log('✅ OptimizedDataService initialized successfully');
+    console.log('✅ DataService initialized successfully');
   }
 
   /**
@@ -774,5 +774,5 @@ class OptimizedDataService {
   }
 }
 
-module.exports = OptimizedDataService;
+module.exports = DataService;
 
