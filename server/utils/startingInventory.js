@@ -274,22 +274,27 @@ class StartingInventoryManager {
       }
 
       // Récupérer les IDs des équipements
-      const placeholders = equipmentNames.map((_, index) => `$${index + 1}`).join(',');
+      const displayPlaceholders = equipmentNames.map((_, index) => `$${index + 1}`).join(',');
+      const namePlaceholders = equipmentNames.map((_, index) => `$${equipmentNames.length + index + 1}`).join(',');
       const result = await client.query(`
         SELECT i.id, i.name, i.display_name, it.equip_slot 
         FROM items i
         JOIN item_types it ON i.type_id = it.id
-        WHERE i.display_name IN (${placeholders}) OR i.name IN (${placeholders})
+        WHERE i.display_name IN (${displayPlaceholders}) OR i.name IN (${namePlaceholders})
         ORDER BY i.name
       `, [...equipmentNames, ...equipmentNames]);
       
-      const equipmentIds = result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        quantity: 1,
-        equipped: true,
-        slot: row.equip_slot || null
-      }));
+      const equipmentIds = result.rows.map(row => {
+        const derivedSlot = row.equip_slot || this.getEquipmentSlotFromName(row.name || row.display_name || '');
+        const hasSlot = Boolean(derivedSlot);
+        return {
+          id: row.id,
+          name: row.name,
+          quantity: 1,
+          equipped: hasSlot, // only auto-equip if we can determine a valid slot
+          slot: hasSlot ? derivedSlot : null
+        };
+      });
       
       console.log('🔍 IDs des équipements de départ trouvés:', equipmentIds);
       return equipmentIds;
@@ -320,7 +325,7 @@ class StartingInventoryManager {
       return 'gloves';
     }
     if (equipmentName.includes('shield')) {
-      return 'shield';
+      return 'accessory';
     }
     if (equipmentName.includes('ring')) {
       return 'ring';

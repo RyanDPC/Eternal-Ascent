@@ -30,21 +30,26 @@ const GamePage = () => {
   // Debug: voir les stats du personnage reçues (désactivé)
   // console.log('🔍 Stats du personnage reçues:', character);
   
-  const [player, setPlayer] = useState({
-    ...character,
-    currentHealth: Number(character?.health) || Number(character?.max_health) || 100,
-    currentMana: Number(character?.mana) || Number(character?.max_mana) || 50,
-    max_health: Number(character?.max_health) || 100,
-    max_mana: Number(character?.max_mana) || 50,
-    attack: Number(character?.attack) || 30,
-    defense: Number(character?.defense) || 20,
-    magic_attack: Number(character?.magic_attack) || 25,
-    magic_defense: Number(character?.magic_defense) || 15,
-    critical_rate: Number(character?.critical_rate) || 15,
-    critical_damage: Number(character?.critical_damage) || 150,
-    dodge_chance: Number(character?.dodge_chance) || 8,
-    status_effects: [],
-    cooldowns: {}
+  const [player, setPlayer] = useState(() => {
+    const s = character?.stats || {};
+    return {
+      id: character?.id,
+      name: character?.name,
+      level: character?.level || 1,
+      currentHealth: Number(s.health ?? character?.health ?? s.max_health ?? 100),
+      currentMana: Number(s.mana ?? character?.mana ?? s.max_mana ?? 50),
+      max_health: Number(s.max_health ?? character?.max_health ?? 100),
+      max_mana: Number(s.max_mana ?? character?.max_mana ?? 50),
+      attack: Number(s.attack ?? character?.attack ?? 30),
+      defense: Number(s.defense ?? character?.defense ?? 20),
+      magic_attack: Number(s.magic_attack ?? character?.magic_attack ?? 25),
+      magic_defense: Number(s.magic_defense ?? character?.magic_defense ?? 15),
+      critical_rate: Number(s.critical_rate ?? character?.critical_rate ?? 15),
+      critical_damage: Number(s.critical_damage ?? character?.critical_damage ?? 150),
+      dodge_chance: Number(s.dodge_chance ?? character?.dodge_chance ?? 8),
+      status_effects: [],
+      cooldowns: {}
+    };
   });
 
   // Charger les stats calculées avec équipement
@@ -57,18 +62,19 @@ const GamePage = () => {
           
           setPlayer(prev => ({
             ...prev,
-            max_health: finalStats.max_health,
-            max_mana: finalStats.max_mana,
-            attack: finalStats.attack,
-            defense: finalStats.defense,
-            magic_attack: finalStats.magic_attack,
-            magic_defense: finalStats.magic_defense,
-            critical_rate: finalStats.critical_rate,
-            critical_damage: finalStats.critical_damage,
-            dodge_chance: finalStats.dodge_chance,
-            // Garder les PV et mana actuels
-            currentHealth: prev.currentHealth || finalStats.max_health,
-            currentMana: prev.currentMana || finalStats.max_mana
+            level: character.level || prev.level || 1,
+            max_health: Number(finalStats.max_health ?? prev.max_health ?? 100),
+            max_mana: Number(finalStats.max_mana ?? prev.max_mana ?? 50),
+            attack: Number(finalStats.attack ?? prev.attack ?? 30),
+            defense: Number(finalStats.defense ?? prev.defense ?? 20),
+            magic_attack: Number(finalStats.magic_attack ?? prev.magic_attack ?? 25),
+            magic_defense: Number(finalStats.magic_defense ?? prev.magic_defense ?? 15),
+            critical_rate: Number(finalStats.critical_rate ?? prev.critical_rate ?? 15),
+            critical_damage: Number(finalStats.critical_damage ?? prev.critical_damage ?? 150),
+            dodge_chance: Number(finalStats.dodge_chance ?? prev.dodge_chance ?? 8),
+            // Garder les PV et mana actuels (ou remplir au max si vides)
+            currentHealth: Number(prev.currentHealth || finalStats.health || finalStats.max_health),
+            currentMana: Number(prev.currentMana || finalStats.mana || finalStats.max_mana)
           }));
         } catch (error) {
           console.error('Erreur lors du chargement des stats calculées:', error);
@@ -88,20 +94,20 @@ const GamePage = () => {
     isCompleted: false
   });
 
-  const [monster, setMonster] = useState({
-    name: dungeon?.monsters?.[0] || 'Gobelin',
-    level: dungeon?.level || 12,
-    maxHealth: 75,
-    currentHealth: 75,
-    attack: 20,
-    defense: 10,
-    magic_attack: 15,
-    magic_defense: 8,
+  const [monster, setMonster] = useState(() => ({
+    name: dungeon?.enemies?.[0] || 'Gobelin',
+    level: dungeon?.level_requirement || dungeon?.level || 1,
+    maxHealth: 0,
+    currentHealth: 0,
+    attack: 0,
+    defense: 0,
+    magic_attack: 0,
+    magic_defense: 0,
     critical_rate: 5,
     critical_damage: 150,
     dodge_chance: 3,
     status_effects: []
-  });
+  }));
 
   const [battleLog, setBattleLog] = useState([
     { id: 1, type: 'info', message: 'Prêt pour le combat !', timestamp: Date.now() }
@@ -121,11 +127,26 @@ const GamePage = () => {
   // Initialiser le système de combat
   useEffect(() => {
     if (character) {
-      setPlayer({
-        ...character,
+      const s = character.stats || {};
+      setPlayer(prev => ({
+        ...prev,
+        id: character.id,
+        name: character.name,
+        level: character.level || prev.level || 1,
+        currentHealth: Number(s.health ?? prev.currentHealth ?? s.max_health ?? 100),
+        currentMana: Number(s.mana ?? prev.currentMana ?? s.max_mana ?? 50),
+        max_health: Number(s.max_health ?? prev.max_health ?? 100),
+        max_mana: Number(s.max_mana ?? prev.max_mana ?? 50),
+        attack: Number(s.attack ?? prev.attack ?? 30),
+        defense: Number(s.defense ?? prev.defense ?? 20),
+        magic_attack: Number(s.magic_attack ?? prev.magic_attack ?? 25),
+        magic_defense: Number(s.magic_defense ?? prev.magic_defense ?? 15),
+        critical_rate: Number(s.critical_rate ?? prev.critical_rate ?? 15),
+        critical_damage: Number(s.critical_damage ?? prev.critical_damage ?? 150),
+        dodge_chance: Number(s.dodge_chance ?? prev.dodge_chance ?? 8),
         status_effects: [],
         cooldowns: {}
-      });
+      }));
       
       // Charger les compétences disponibles pour la classe du personnage
       loadSkills();
@@ -142,7 +163,7 @@ const GamePage = () => {
       const dungeonEnemyTypes = dungeon?.enemies || ['goblin_warrior'];
       
       // Récupérer tous les ennemis depuis la base de données
-      const enemies = await databaseService.getEnemies();
+      const enemies = await databaseService.getEnemies({ level_min: 1 });
       
       // Mapping entre les IDs des donjons et les noms en base de données
       const enemyMapping = {
@@ -213,13 +234,13 @@ const GamePage = () => {
             name: enemyData.name,
             display_name: enemyData.display_name,
             level: enemyData.level,
-            maxHealth: enemyData.health,
-            currentHealth: enemyData.health,
+            maxHealth: Number(enemyData.health || enemyData.stats?.health || 0),
+            currentHealth: Number(enemyData.health || enemyData.stats?.health || 0),
             attack: enemyData.attack,
             defense: enemyData.defense,
             magic_attack: enemyData.magic_attack,
             magic_defense: enemyData.magic_defense,
-            speed: enemyData.speed,
+            speed: Number(enemyData.speed || 100),
             critical_rate: 10,
             critical_damage: 150,
             dodge_chance: 5,
@@ -441,7 +462,8 @@ const GamePage = () => {
   const loadSkills = async () => {
     try {
       setLoadingSkills(true);
-      const skills = await databaseService.getSkillsByClass(character.class);
+      const cls = character.class_code || character.class_name || character.class;
+      const skills = await databaseService.getSkillsByClass(cls);
       setAvailableSkills(skills);
     } catch (error) {
       console.error('Erreur lors du chargement des compétences:', error);

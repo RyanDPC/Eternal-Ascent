@@ -1,26 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
-const jwt = require('jsonwebtoken');
+const authenticateToken = require('../middleware/auth');
 const talentsData = require('../data/sid/talents');
+const dungeonsData = require('../data/sid/dungeons');
+const characterStatsUtil = require('../utils/characterStats');
 
-// Middleware d'authentification
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Token d\'accès requis' });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET || 'eterna_secret_key', (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Token invalide' });
-    }
-    req.user = user;
-    next();
-  });
-};
+// Middleware d'authentification importé (supporte cookies httpOnly et Bearer)
 
 // Middleware pour injecter le service de cache
 const injectCacheService = (req, res, next) => {
@@ -312,52 +298,22 @@ router.get('/skills', injectCacheService, async (req, res) => {
 router.get('/dungeons', injectCacheService, async (req, res) => {
   try {
     const { difficulty, level_min, level_max } = req.query;
-    
-    const getDungeons = withFallback(
-      () => req.cacheService.getStaticData('dungeons'),
-      async () => {
-        try {
-          const result = await req.app.locals.dataService.pool.query('SELECT * FROM dungeons');
-          return result.rows;
-        } catch (_) { return null; }
-      }
-    );
-    let dungeons = await getDungeons();
-    
-    if (!dungeons) {
-      return res.status(503).json({ error: 'Données non disponibles' });
-    }
+
+    // Source de vérité: SID data generator (cohérente et complète)
+    let dungeons = dungeonsData.getDungeons();
 
     // Appliquer les filtres
     if (difficulty) {
-      dungeons = dungeons.filter(dungeon => dungeon.difficulty === difficulty);
+      dungeons = dungeons.filter(d => String(d.difficulty).toLowerCase() === String(difficulty).toLowerCase());
     }
-    
     if (level_min) {
-      dungeons = dungeons.filter(dungeon => dungeon.level_requirement >= parseInt(level_min));
+      dungeons = dungeons.filter(d => Number(d.level_requirement || 0) >= Number(level_min));
     }
-    
     if (level_max) {
-      dungeons = dungeons.filter(dungeon => dungeon.level_requirement <= parseInt(level_max));
+      dungeons = dungeons.filter(d => Number(d.level_requirement || 0) <= Number(level_max));
     }
 
-    res.json({
-      success: true,
-      dungeons: dungeons.map(dungeon => ({
-        id: dungeon.id,
-        name: dungeon.name,
-        display_name: dungeon.display_name,
-        description: dungeon.description,
-        level_requirement: dungeon.level_requirement,
-        difficulty: dungeon.difficulty,
-        estimated_duration: dungeon.estimated_duration,
-        rewards: dungeon.rewards,
-        requirements: dungeon.requirements,
-        enemies: dungeon.enemies,
-        icon: dungeon.icon,
-        theme: dungeon.theme
-      }))
-    });
+    res.json({ success: true, dungeons });
   } catch (error) {
     console.error('❌ Error fetching dungeons:', error);
     res.status(500).json({ error: 'Erreur interne du serveur' });
@@ -603,10 +559,10 @@ router.get('/quests', injectCacheService, async (req, res) => {
  * Endpoint optimisé pour le dashboard avec toutes les données nécessaires
  */
 router.get('/dashboard', authenticateToken, async (req, res) => {
-  const pool = new Pool(getDbConfig());
+  const pool = req.app.locals?.dataService?.pool;
   
   try {
-    const userId = req.user.id;
+    const userId = req.user?.userId || req.user?.id;
     
     // Récupérer toutes les données nécessaires en une seule requête
     const dashboardQuery = `
@@ -614,6 +570,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
         SELECT 
           c.*,
           cc.display_name as class_name,
+          cc.name as class_code,
           cc.base_stats as class_base_stats,
           cc.description as class_description,
           u.email,
@@ -652,43 +609,44 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       ),
       skills_data AS (
         SELECT 
-          s.*,
-          cs.level as learned_level,
-          cs.learned_at
+          s.*
         FROM skills s
-        LEFT JOIN character_skills cs ON s.id = cs.skill_id 
-          AND cs.character_id = (SELECT id FROM characters WHERE user_id = $1)
-        WHERE s.class_id = (SELECT class_id FROM characters WHERE user_id = $1)
-           OR s.class_id IS NULL
+        WHERE 
+          s.class = (
+            SELECT cc.name 
+            FROM characters c 
+            JOIN character_classes cc ON c.class_id = cc.id 
+            WHERE c.user_id = $1
+          )
+          OR s.available_classes @> jsonb_build_array((
+            SELECT cc.name 
+            FROM characters c 
+            JOIN character_classes cc ON c.class_id = cc.id 
+            WHERE c.user_id = $1
+          ))
+        ORDER BY s.level_requirement ASC
       ),
       achievements_data AS (
-        SELECT 
-          a.*,
-          ca.unlocked_at,
-          ca.progress
-        FROM achievements a
-        LEFT JOIN character_achievements ca ON a.id = ca.achievement_id 
-          AND ca.character_id = (SELECT id FROM characters WHERE user_id = $1)
+        SELECT NULL::int as dummy WHERE 1 = 0
       ),
       dungeons_data AS (
         SELECT 
           d.*,
           diff.display_name as difficulty_display_name,
-          diff.multiplier as difficulty_multiplier
+          diff.exp_multiplier as difficulty_exp_multiplier,
+          diff.gold_multiplier as difficulty_gold_multiplier
         FROM dungeons d
-        JOIN difficulties diff ON d.difficulty = diff.name
+        JOIN difficulties diff ON d.difficulty_id = diff.id
         WHERE d.level_requirement <= (SELECT level FROM characters WHERE user_id = $1)
         ORDER BY d.level_requirement ASC
         LIMIT 10
       ),
       quests_data AS (
         SELECT 
-          q.*,
-          qt.display_name as quest_type_display_name
+          q.*
         FROM quests q
-        LEFT JOIN quest_types qt ON q.type = qt.name
-        WHERE q.min_level <= (SELECT level FROM characters WHERE user_id = $1)
-        ORDER BY q.min_level ASC
+        WHERE q.level_requirement <= (SELECT level FROM characters WHERE user_id = $1)
+        ORDER BY q.level_requirement ASC
         LIMIT 10
       )
       SELECT 
@@ -738,13 +696,18 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     }
     
     data = result.rows[0];
+
+    // Consolider les stats côté Node (plus fiable que la fonction SQL qui dépend de characters.stats)
+    const inventoryRows = data.inventory || [];
+    const equippedItems = Array.isArray(inventoryRows) ? inventoryRows.filter(it => it.equipped) : [];
+    const consolidatedStats = characterStatsUtil.calculateFinalStats(data.character || {}, equippedItems || []);
     
     // Structurer la réponse optimisée
     const optimizedResponse = {
       character: {
         ...data.character,
-        stats: data.calculated_stats,
-        inventory: data.inventory || [],
+        stats: consolidatedStats,
+        inventory: inventoryRows,
         skills: data.skills || [],
         achievements: data.achievements || [],
         recommended_dungeons: data.recommended_dungeons || [],
@@ -757,12 +720,10 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     };
     
     res.json(optimizedResponse);
-    
+
   } catch (error) {
     console.error('Erreur dashboard optimisé:', error);
     res.status(500).json({ error: 'Erreur serveur' });
-  } finally {
-    await pool.end();
   }
 });
 
@@ -771,10 +732,10 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
  * Endpoint optimisé pour la page personnage
  */
 router.get('/character', authenticateToken, async (req, res) => {
-  const pool = new Pool(getDbConfig());
+  const pool = req.app.locals?.dataService?.pool;
   
   try {
-    const userId = req.user.id;
+    const userId = req.user?.userId || req.user?.id;
     
     const characterQuery = `
       WITH character_data AS (
@@ -783,7 +744,6 @@ router.get('/character', authenticateToken, async (req, res) => {
           cc.display_name as class_name,
           cc.base_stats as class_base_stats,
           cc.description as class_description,
-          cc.skills as class_skills,
           u.email,
           u.username,
           u.created_at as user_created_at
@@ -842,26 +802,25 @@ router.get('/character', authenticateToken, async (req, res) => {
       ),
       skills_data AS (
         SELECT 
-          s.*,
-          cs.level as learned_level,
-          cs.learned_at,
-          cs.upgraded_at
+          s.*
         FROM skills s
-        LEFT JOIN character_skills cs ON s.id = cs.skill_id 
-          AND cs.character_id = (SELECT id FROM characters WHERE user_id = $1)
-        WHERE s.class_id = (SELECT class_id FROM characters WHERE user_id = $1)
-           OR s.class_id IS NULL
+        WHERE 
+          s.class = (
+            SELECT cc.name 
+            FROM characters c 
+            JOIN character_classes cc ON c.class_id = cc.id 
+            WHERE c.user_id = $1
+          )
+          OR s.available_classes @> jsonb_build_array((
+            SELECT cc.name 
+            FROM characters c 
+            JOIN character_classes cc ON c.class_id = cc.id 
+            WHERE c.user_id = $1
+          ))
         ORDER BY s.level_requirement ASC
       ),
       achievements_data AS (
-        SELECT 
-          a.*,
-          ca.unlocked_at,
-          ca.progress
-        FROM achievements a
-        LEFT JOIN character_achievements ca ON a.id = ca.achievement_id 
-          AND ca.character_id = (SELECT id FROM characters WHERE user_id = $1)
-        ORDER BY a.level_requirement ASC
+        SELECT NULL::int as dummy WHERE 1 = 0
       )
       SELECT 
         (SELECT row_to_json(character_data) FROM character_data) as character,
@@ -880,14 +839,27 @@ router.get('/character', authenticateToken, async (req, res) => {
     
     const data = result.rows[0];
     
+    // Stats consolidées côté Node
+    const equippedItems = data.equipped_items || [];
+    const consolidatedStats = characterStatsUtil.calculateFinalStats(data.character || {}, equippedItems || []);
+    
     const optimizedResponse = {
       character: {
         ...data.character,
-        stats: data.calculated_stats,
+        stats: consolidatedStats,
         inventory: data.inventory || [],
-        equipped_items: data.equipped_items || [],
+        equipped_items: equippedItems,
         skills: data.skills || [],
-        achievements: data.achievements || []
+        achievements: data.achievements || [],
+        // Arbre de compétences embarqué selon la classe du personnage
+        skill_tree: (() => {
+          try {
+            const cls = data.character?.class_code || data.character?.class_name;
+            if (!cls) return null;
+            // Les talents sont définis par identifiant de classe (ex: 'warrior', 'mage')
+            return talentsData.getTalentTreeByClass(String(cls).toLowerCase()) || null;
+          } catch (_) { return null; }
+        })()
       },
       metadata: {
         timestamp: new Date().toISOString(),
@@ -896,12 +868,10 @@ router.get('/character', authenticateToken, async (req, res) => {
     };
     
     res.json(optimizedResponse);
-    
+
   } catch (error) {
     console.error('Erreur character optimisé:', error);
     res.status(500).json({ error: 'Erreur serveur' });
-  } finally {
-    await pool.end();
   }
 });
 

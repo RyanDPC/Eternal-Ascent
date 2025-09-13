@@ -53,6 +53,7 @@ const AdvancedGuildSystem = () => {
   const [showGuildDetails, setShowGuildDetails] = useState(false);
   const [showCreateGuild, setShowCreateGuild] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterRank, setFilterRank] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('level');
@@ -79,14 +80,35 @@ const AdvancedGuildSystem = () => {
         setLoading(true);
         
         // Charger les guildes disponibles (même sans utilisateur connecté)
-        const availableGuilds = await databaseService.getGuilds();
-        setGuilds(availableGuilds);
+        const availableGuilds = await databaseService.getGuilds({ search: debouncedSearch || undefined });
+        // Si aucune guilde, tenter d'en générer pour la démo
+        if (Array.isArray(availableGuilds) && availableGuilds.length === 0) {
+          try {
+            const gen = await databaseService.generateDynamicGuilds(3);
+            const list = Array.isArray(gen?.guilds) ? gen.guilds : [];
+            setGuilds(list);
+          } catch (e) {
+            setGuilds(availableGuilds);
+          }
+        } else {
+          setGuilds(availableGuilds);
+        }
         console.log('Guildes chargées depuis l\'API:', availableGuilds);
         
         // Charger les données du personnage si connecté
         if (user && user.id) {
           const current = await databaseService.getCurrentCharacterData();
-          setCharacter(current.character || current);
+          const chr = current.character || current;
+          setCharacter(chr);
+          // Si le perso a déjà une guilde, basculer l'UI vers ses onglets
+          try {
+            const cg = await databaseService.getCharacterGuild(chr.id);
+            if (cg && cg.id) {
+              setUserGuild(cg);
+              setUserGuildRank(cg.rank || null);
+              setActiveTab('raids');
+            }
+          } catch (_) { /* ignore */ }
         }
       } catch (err) {
         console.error('Erreur lors du chargement des guildes:', err);
@@ -99,7 +121,13 @@ const AdvancedGuildSystem = () => {
     };
 
     loadGuildData();
-  }, [user]);
+  }, [user, debouncedSearch]);
+
+  // Debounce de la recherche
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
   // Charger des guildes dynamiques en cas d'erreur API
   const loadDynamicGuilds = async () => {
@@ -156,7 +184,8 @@ const AdvancedGuildSystem = () => {
   // Rejoindre une guilde
   const handleJoinGuild = async (guildId) => {
     try {
-      await databaseService.joinGuild(guildId);
+      if (!character?.id) throw new Error('Personnage requis pour rejoindre une guilde');
+      await databaseService.joinGuild(guildId, character.id);
       setError(null);
       // Recharger les données
       loadGuildDetails(guildId);
@@ -168,7 +197,8 @@ const AdvancedGuildSystem = () => {
   // Quitter une guilde
   const handleLeaveGuild = async (guildId) => {
     try {
-      await databaseService.leaveGuild(guildId);
+      if (!character?.id) throw new Error('Personnage requis pour quitter une guilde');
+      await databaseService.leaveGuild(guildId, character.id);
       setError(null);
       setUserGuild(null);
       setUserGuildRank(null);
@@ -195,7 +225,8 @@ const AdvancedGuildSystem = () => {
   // Rejoindre un raid
   const handleJoinRaid = async (raidId) => {
     try {
-      await databaseService.joinGuildRaid(raidId);
+      if (!character?.id) throw new Error('Personnage requis pour rejoindre un raid');
+      await databaseService.joinGuildRaid(raidId, character.id);
       setError(null);
       // Recharger les raids
       if (userGuild) {
@@ -224,7 +255,8 @@ const AdvancedGuildSystem = () => {
   // Contribuer à un projet
   const handleContributeToProject = async (projectId, contribution) => {
     try {
-      await databaseService.contributeToGuildProject(projectId, contribution);
+      if (!character?.id) throw new Error('Personnage requis pour contribuer au projet');
+      await databaseService.contributeToGuildProject(projectId, contribution, character.id);
       setError(null);
       // Recharger les projets
       if (userGuild) {
@@ -240,7 +272,8 @@ const AdvancedGuildSystem = () => {
   const handleCreateEvent = async (eventData) => {
     try {
       if (!userGuild) return;
-      await databaseService.createGuildEvent(userGuild.id, eventData);
+      if (!character?.id) throw new Error('Personnage requis pour créer un événement');
+      await databaseService.createGuildEvent(userGuild.id, { ...eventData, createdBy: character.id });
       setError(null);
       // Recharger les événements
       const events = await databaseService.getGuildEvents(userGuild.id);
@@ -296,7 +329,6 @@ const AdvancedGuildSystem = () => {
         <div className="loading-container">
           <div className="loading-spinner"></div>
           <p>Chargement du système de guildes...</p>
-          <p>Guildes chargées: {guilds.length}</p>
         </div>
       </div>
     );
@@ -304,18 +336,12 @@ const AdvancedGuildSystem = () => {
 
   return (
     <div className="advanced-guild-system">
-      {/* Debug info */}
-      <div style={{background: 'rgba(255,0,0,0.1)', padding: '10px', margin: '10px', border: '1px solid red'}}>
-        <p>DEBUG: Guildes chargées: {guilds.length}</p>
-        <p>DEBUG: Loading: {loading.toString()}</p>
-        <p>DEBUG: Error: {error || 'Aucune erreur'}</p>
-      </div>
       
       {/* Header */}
       <div className="guild-header">
         <div className="header-content">
-          <h1><Crown className="header-icon" /> Système de Guildes Avancé</h1>
-          <p>Rejoignez des guildes, participez aux raids, construisez ensemble et dominez les territoires</p>
+          <h1><Crown className="header-icon" /> Guildes</h1>
+          <p>Rejoignez, progressez, dominez. Style classique, clair et minimal.</p>
         </div>
         
         {userGuild && (
@@ -347,7 +373,7 @@ const AdvancedGuildSystem = () => {
                 onClick={() => setActiveTab('raids')}
               >
                 <RaidIcon size={20} />
-                <span>Raids de Guilde</span>
+                <span>Raids</span>
               </button>
               
               <button 
@@ -395,7 +421,7 @@ const AdvancedGuildSystem = () => {
                   <Search size={20} />
                   <input
                     type="text"
-                    placeholder="Rechercher une guilde..."
+                    placeholder="Rechercher une guilde... (nom ou description)"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -441,11 +467,7 @@ const AdvancedGuildSystem = () => {
                     className="guild-card"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    onClick={() => {
-                      loadGuildDetails(guild.id);
-                      setShowGuildDetails(true);
-                    }}
+                    transition={{ delay: index * 0.05 }}
                   >
                     <div className="guild-card-header">
                       <div className="guild-info">
@@ -461,7 +483,7 @@ const AdvancedGuildSystem = () => {
                         </div>
                         <div className="stat">
                           <Trophy size={16} />
-                          <span>{guild.guild_honor.toLocaleString()}</span>
+                          <span>{guild.guild_honor?.toLocaleString?.() || guild.guild_honor}</span>
                         </div>
                       </div>
                     </div>
@@ -469,19 +491,19 @@ const AdvancedGuildSystem = () => {
                     <p className="guild-description">{guild.description}</p>
                     
                     <div className="guild-features">
-                      {guild.territories && guild.territories.length > 0 && (
+                      {guild.territories?.length > 0 && (
                         <div className="feature">
                           <MapPin size={14} />
                           <span>{guild.territories.length} territoire(s)</span>
                         </div>
                       )}
-                      {guild.projects && guild.projects.length > 0 && (
+                      {guild.projects?.length > 0 && (
                         <div className="feature">
                           <Hammer size={14} />
                           <span>{guild.projects.length} projet(s)</span>
                         </div>
                       )}
-                      {guild.raids && guild.raids.length > 0 && (
+                      {guild.raids?.length > 0 && (
                         <div className="feature">
                           <Sword size={14} />
                           <span>{guild.raids.filter(r => r.status === 'active').length} raid(s) actif(s)</span>
@@ -492,21 +514,14 @@ const AdvancedGuildSystem = () => {
                     <div className="guild-actions">
                       <button 
                         className="btn-primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleJoinGuild(guild.id);
-                        }}
+                        onClick={async () => { await handleJoinGuild(guild.id); }}
                       >
                         <UserPlus size={16} />
                         Rejoindre
                       </button>
                       <button 
                         className="btn-secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          loadGuildDetails(guild.id);
-                          setShowGuildDetails(true);
-                        }}
+                        onClick={async () => { await loadGuildDetails(guild.id); setShowGuildDetails(true); }}
                       >
                         <Eye size={16} />
                         Détails
@@ -740,14 +755,36 @@ const AdvancedGuildSystem = () => {
         </AnimatePresence>
       </div>
 
+      {/* Modal Détails minimal */}
+      <AnimatePresence>
+        {showGuildDetails && selectedGuild && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="modal-overlay" onClick={() => setShowGuildDetails(false)}>
+            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>{selectedGuild.display_name}</h3>
+                <button className="close" onClick={() => setShowGuildDetails(false)}><X size={18} /></button>
+              </div>
+              <div className="modal-body">
+                <p>{selectedGuild.description}</p>
+                <div className="stat"><Users size={16} /> {selectedGuild.current_members}/{selectedGuild.max_members}</div>
+                <div className="stat"><Trophy size={16} /> {selectedGuild.guild_honor?.toLocaleString?.() || selectedGuild.guild_honor}</div>
+              </div>
+              <div className="modal-actions">
+                <button className="btn-primary" onClick={async () => { await handleJoinGuild(selectedGuild.id); }}>
+                  <UserPlus size={16} /> Rejoindre
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Messages d'erreur */}
       {error && (
         <div className="error-message">
           <AlertCircle size={20} />
           <span>{error}</span>
-          <button onClick={() => setError(null)}>
-            <X size={16} />
-          </button>
+          <button onClick={() => setError(null)}><X size={16} /></button>
         </div>
       )}
     </div>

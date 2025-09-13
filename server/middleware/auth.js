@@ -1,10 +1,14 @@
 const jwt = require('jsonwebtoken');
 
-// Middleware d'authentification simple basé sur le header Authorization: Bearer <token>
+// Middleware d'authentification
+// - Docker/Redis: géré côté serveur (cookie "sid" mappé en payload)
+// - Sinon: support Bearer token et cookie JWT httpOnly ("token")
 function authenticateToken(req, res, next) {
   try {
     const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearer = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const cookieJwt = req.cookies && (req.cookies.token || req.cookies.jwt);
+    const token = bearer || cookieJwt;
 
     if (!token) {
       return res.status(401).json({ error: 'Token d\'accès requis' });

@@ -15,6 +15,7 @@ const Dungeons = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [combatResults, setCombatResults] = useState(null);
+  const [openJson, setOpenJson] = useState({});
   const { user } = useAuth();
 
   // Charger les données des donjons et du personnage
@@ -30,10 +31,12 @@ const Dungeons = () => {
 
           // Charger les donjons disponibles
           const availableDungeons = await databaseService.getAvailableDungeons();
+          console.log('Dungeons fetched:', availableDungeons);
           setDungeons(Array.isArray(availableDungeons) ? availableDungeons : []);
 
           // Charger les difficultés
           const difficultiesData = await databaseService.getDifficulties();
+          console.log('Difficulties fetched:', difficultiesData);
           setDifficulties(Array.isArray(difficultiesData) ? difficultiesData : []);
         }
       } catch (err) {
@@ -63,8 +66,13 @@ const Dungeons = () => {
     return true;
   };
 
-  const getDifficultyData = (difficultyName) => {
-    const difficulty = difficulties.find(d => d.name === difficultyName);
+  const getDifficultyData = (difficultyRef) => {
+    let difficulty = null;
+    if (typeof difficultyRef === 'number') {
+      difficulty = difficulties.find(d => d.id === difficultyRef);
+    } else if (typeof difficultyRef === 'string') {
+      difficulty = difficulties.find(d => d.name === difficultyRef || d.display_name === difficultyRef);
+    }
     return difficulty || {
       color: '#b8c5d6',
       icon: '⚪',
@@ -72,16 +80,47 @@ const Dungeons = () => {
     };
   };
 
-  const getDifficultyColor = (difficultyName) => {
-    return getDifficultyData(difficultyName).color;
+  const getDifficultyColor = (difficultyRef) => {
+    return getDifficultyData(difficultyRef).color;
   };
 
-  const getDifficultyIcon = (difficultyName) => {
-    return getDifficultyData(difficultyName).icon;
+  const getDifficultyIcon = (difficultyRef) => {
+    return getDifficultyData(difficultyRef).icon;
   };
 
-  const getDifficultyText = (difficultyName) => {
-    return getDifficultyData(difficultyName).display_name;
+  const getDifficultyText = (difficultyRef) => {
+    return getDifficultyData(difficultyRef).display_name;
+  };
+
+  const resolveDifficultyRef = (dungeon) => dungeon.difficulty ?? dungeon.difficulty_name ?? dungeon.difficulty_id ?? null;
+
+  const getEnemiesCount = (dungeon) => {
+    if (Array.isArray(dungeon.enemies)) return dungeon.enemies.length;
+    if (typeof dungeon.monster_count === 'number') return dungeon.monster_count;
+    return 0;
+  };
+
+  const getExpReward = (dungeon) => {
+    const r = dungeon.rewards;
+    if (!r) return dungeon.exp_reward || 0;
+    if (Array.isArray(r)) {
+      // try to find an object with experience/exp field
+      const obj = r.find(x => typeof x === 'object' && (x.experience || x.exp));
+      return (obj && (obj.experience || obj.exp)) || 0;
+    }
+    if (typeof r === 'object') return r.experience || r.exp || dungeon.exp_reward || 0;
+    return dungeon.exp_reward || 0;
+  };
+
+  const getGoldReward = (dungeon) => {
+    const r = dungeon.rewards;
+    if (!r) return dungeon.gold_reward || 0;
+    if (Array.isArray(r)) {
+      const obj = r.find(x => typeof x === 'object' && (x.gold || x.coins));
+      return (obj && (obj.gold || obj.coins)) || 0;
+    }
+    if (typeof r === 'object') return r.gold || r.coins || dungeon.gold_reward || 0;
+    return dungeon.gold_reward || 0;
   };
 
   const startCombat = async (dungeon) => {
@@ -233,13 +272,13 @@ const Dungeons = () => {
                   {dungeon.icon || '🗺️'}
                 </div>
                 <div className="dungeon-info">
-                  <h3>{dungeon.name}</h3>
+                  <h3>{dungeon.display_name || dungeon.name}</h3>
                   <div className="dungeon-meta">
-                    <span className="difficulty-badge" style={{ backgroundColor: getDifficultyColor(dungeon.difficulty) }}>
-                      {getDifficultyIcon(dungeon.difficulty)} {getDifficultyText(dungeon.difficulty)}
+                    <span className="difficulty-badge" style={{ backgroundColor: getDifficultyColor(resolveDifficultyRef(dungeon)) }}>
+                      {getDifficultyIcon(resolveDifficultyRef(dungeon))} {getDifficultyText(resolveDifficultyRef(dungeon))}
                     </span>
                     <span className="level-requirement">
-                      Niveau {dungeon.min_level || 1}+
+                      Niveau {dungeon.level_requirement || dungeon.min_level || 1}+
                     </span>
                   </div>
                 </div>
@@ -252,23 +291,23 @@ const Dungeons = () => {
               <div className="dungeon-details">
                 <div className="detail-item">
                   <Sword size={16} />
-                  <span>{dungeon.monster_count || 0} monstres</span>
+                  <span>{getEnemiesCount(dungeon)} monstres</span>
                 </div>
                 <div className="detail-item">
                   <Trophy size={16} />
-                  <span>{dungeon.exp_reward || 0} EXP</span>
+                  <span>{getExpReward(dungeon)} EXP</span>
                 </div>
                 <div className="detail-item">
                   <Shield size={16} />
-                  <span>{dungeon.gold_reward || 0} Or</span>
+                  <span>{getGoldReward(dungeon)} Or</span>
                 </div>
                 <div className="detail-item">
                   <Map size={16} />
-                  <span>{dungeon.time_limit || '30'} min</span>
+                  <span>{dungeon.estimated_duration || dungeon.time_limit || '30'} min</span>
                 </div>
               </div>
 
-              <div className="dungeon-actions">
+              <div className="dungeon-actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 {isAccessible ? (
                   <button
                     className="enter-dungeon-btn"
@@ -283,7 +322,20 @@ const Dungeons = () => {
                     <span>Niveau {dungeon.min_level || 1} requis</span>
                   </div>
                 )}
+
+                <button
+                  className="refresh-btn"
+                  onClick={() => setOpenJson(prev => ({ ...prev, [dungeon.id || dungeon.name || index]: !prev[dungeon.id || dungeon.name || index] }))}
+                >
+                  Voir JSON
+                </button>
               </div>
+
+              {openJson[dungeon.id || dungeon.name || index] && (
+                <div className="dungeon-json" style={{ marginTop: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: 12, overflowX: 'auto' }}>
+                  <pre style={{ margin: 0, fontSize: 12, lineHeight: 1.35 }}>{JSON.stringify(dungeon, null, 2)}</pre>
+                </div>
+              )}
             </motion.div>
           );
         })}

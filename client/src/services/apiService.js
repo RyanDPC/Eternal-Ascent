@@ -5,7 +5,6 @@
 class ApiService {
   constructor() {
     this.baseURL = 'http://localhost:3001/api';
-    this.token = localStorage.getItem('authToken');
   }
 
   // Helper pour les requêtes authentifiées
@@ -15,13 +14,10 @@ class ApiService {
       ...options.headers
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-
     const response = await fetch(`${this.baseURL}${endpoint}`, {
       ...options,
-      headers
+      headers,
+      credentials: 'include'
     });
 
     if (!response.ok) {
@@ -33,18 +29,18 @@ class ApiService {
   }
 
   // ===== AUTHENTIFICATION =====
-  async login(email, password) {
+  async login(username, password) {
     try {
       const response = await fetch(`${this.baseURL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ username, password }),
+        credentials: 'include'
       });
 
       const data = await response.json();
       
       if (response.ok) {
-        this.setToken(data.token);
         return data;
       } else {
         throw new Error(data.error || 'Erreur de connexion');
@@ -60,13 +56,13 @@ class ApiService {
       const response = await fetch(`${this.baseURL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
+        body: JSON.stringify(userData),
+        credentials: 'include'
       });
 
       const data = await response.json();
       
       if (response.ok) {
-        this.setToken(data.token);
         return data;
       } else {
         throw new Error(data.error || 'Erreur d\'inscription');
@@ -83,7 +79,6 @@ class ApiService {
     } catch (error) {
       console.error('Erreur de déconnexion:', error);
     } finally {
-      this.clearToken();
     }
   }
 
@@ -102,6 +97,37 @@ class ApiService {
       return await this.authenticatedRequest('/static/character');
     } catch (error) {
       console.error('Erreur lors du chargement de la page personnage:', error);
+      throw error;
+    }
+  }
+
+  async getMe() {
+    try {
+      return await this.authenticatedRequest('/user/profile');
+    } catch (error) {
+      console.error('Erreur profil utilisateur:', error);
+      throw error;
+    }
+  }
+
+  // ===== ACTIVITÉ =====
+  async getRecentActivity(limit = 10) {
+    try {
+      return await this.authenticatedRequest(`/activity/recent?limit=${encodeURIComponent(limit)}`);
+    } catch (error) {
+      console.error('Erreur lors du chargement de l\'activité récente:', error);
+      throw error;
+    }
+  }
+
+  async logActivity({ type, description, metadata }) {
+    try {
+      return await this.authenticatedRequest('/activity/log', {
+        method: 'POST',
+        body: JSON.stringify({ type, description, metadata })
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'enregistrement d\'activité:', error);
       throw error;
     }
   }
@@ -211,19 +237,9 @@ class ApiService {
   }
 
   // ===== UTILITAIRES =====
-  setToken(token) {
-    this.token = token;
-    localStorage.setItem('authToken', token);
-  }
-
-  clearToken() {
-    this.token = null;
-    localStorage.removeItem('authToken');
-  }
-
-  isAuthenticated() {
-    return !!this.token;
-  }
+  setToken() {}
+  clearToken() {}
+  isAuthenticated() { return true; }
 }
 
 // Instance singleton

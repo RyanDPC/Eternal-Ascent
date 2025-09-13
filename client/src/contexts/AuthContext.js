@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import databaseService from '../services/databaseService';
+import api from '../services/apiService';
 
 const AuthContext = createContext();
 
@@ -15,37 +15,25 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [character, setCharacter] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('authToken'));
+  const [token, setToken] = useState('cookie');
 
   const checkAuthStatus = useCallback(async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    
     try {
-      // Check if the token is still valid by trying to get user data
-      const userData = localStorage.getItem('userData');
-      const characterData = localStorage.getItem('characterData');
-      if (userData) {
-        setUser(JSON.parse(userData));
-        if (characterData) {
-          setCharacter(JSON.parse(characterData));
-        }
-      } else {
-        // Token exists but no user data, clear token
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('characterData');
-        setToken(null);
-        setUser(null);
-        setCharacter(null);
+      // Hydrater depuis l'API (cookies httpOnly envoyés automatiquement)
+      const me = await api.getDashboardData();
+      if (me && me.character) {
+        setUser({ id: me.character.user_id, username: me.character.username, email: me.character.email });
+        setCharacter(me.character);
+        return;
+      }
+      // fallback profil simple
+      const prof = await api.getMe().catch(() => null);
+      if (prof && prof.user) {
+        setUser(prof.user);
+        setCharacter(prof.character || null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
-      localStorage.removeItem('characterData');
-      setToken(null);
       setUser(null);
       setCharacter(null);
     } finally {
@@ -64,17 +52,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const data = await databaseService.login(username, password);
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('userData', JSON.stringify(data.user));
-      if (data.character) {
-        localStorage.setItem('characterData', JSON.stringify(data.character));
-        setCharacter(data.character);
-      }
-      setToken(data.token);
+      const data = await api.login(username, password);
       setUser(data.user);
-      // Forcer la mise à jour immédiate
-      await new Promise(resolve => setTimeout(resolve, 100));
+      setCharacter(data.character);
+      // token géré par cookie httpOnly, pas de localStorage
       return { success: true, user: data.user, character: data.character };
     } catch (error) {
       return { success: false, error: error.message || 'Network error' };
@@ -83,25 +64,17 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (username, email, password) => {
     try {
-      const data = await databaseService.register({ username, email, password });
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('userData', JSON.stringify(data.user));
-      if (data.character) {
-        localStorage.setItem('characterData', JSON.stringify(data.character));
-        setCharacter(data.character);
-      }
-      setToken(data.token);
+      const data = await api.register({ username, email, password });
       setUser(data.user);
+      setCharacter(data.character);
       return { success: true, user: data.user, character: data.character };
     } catch (error) {
       return { success: false, error: error.message || 'Network error' };
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userData');
-    localStorage.removeItem('characterData');
+  const logout = async () => {
+    try { await api.authenticatedRequest('/auth/logout', { method: 'POST' }); } catch (_) {}
     setToken(null);
     setUser(null);
     setCharacter(null);

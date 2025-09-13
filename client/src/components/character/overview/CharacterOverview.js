@@ -12,214 +12,53 @@ const CharacterOverview = ({
   selectedSection, 
   setSelectedSection 
 }) => {
-  // Calculer les statistiques dynamiques
+  // Statistiques de combat (issues directement des données calculées/DB)
   const getCombatStats = () => {
-    // Utiliser les stats finales si disponibles, sinon les stats de base
-    const stats = finalStats || character;
-    
+    const stats = finalStats || character?.stats || character || {};
     return [
-      { key: 'attack', label: 'Attaque', value: stats.attack, icon: <Sword size={24} />, color: '#e74c3c' },
-      { key: 'defense', label: 'Défense', value: stats.defense, icon: <Shield size={24} />, color: '#3498db' },
-      { key: 'magic_attack', label: 'Attaque Magique', value: stats.magic_attack, icon: <Zap size={24} />, color: '#9b59b6' },
-      { key: 'magic_defense', label: 'Défense Magique', value: stats.magic_defense, icon: <Shield size={24} />, color: '#e67e22' },
-      { key: 'critical_rate', label: 'Chance Critique', value: `${parseFloat(stats.critical_rate).toFixed(1)}%`, icon: <TrendingUp size={24} />, color: '#f39c12' },
-      { key: 'critical_damage', label: 'Dégâts Critiques', value: `${parseFloat(stats.critical_damage).toFixed(1)}%`, icon: <Zap size={24} />, color: '#e74c3c' }
+      { key: 'attack', label: 'Attaque', value: Number(stats.attack ?? 0), icon: <Sword size={24} />, color: '#e74c3c' },
+      { key: 'defense', label: 'Défense', value: Number(stats.defense ?? 0), icon: <Shield size={24} />, color: '#3498db' },
+      { key: 'magic_attack', label: 'Attaque Magique', value: Number(stats.magic_attack ?? 0), icon: <Zap size={24} />, color: '#9b59b6' },
+      { key: 'magic_defense', label: 'Défense Magique', value: Number(stats.magic_defense ?? 0), icon: <Shield size={24} />, color: '#e67e22' },
+      { key: 'attack_speed', label: 'Vitesse d\'attaque', value: Number(stats.attack_speed ?? 0).toFixed(1), icon: <Zap size={24} />, color: '#16a085' },
+      { key: 'movement_speed', label: 'Vitesse de déplacement', value: Number(stats.movement_speed ?? 0).toFixed(1), icon: <Zap size={24} />, color: '#1abc9c' },
+      { key: 'critical_rate', label: 'Chance Critique', value: `${Number(stats.critical_rate ?? 0).toFixed(1)}%`, icon: <TrendingUp size={24} />, color: '#f39c12' },
+      { key: 'critical_damage', label: 'Dégâts Critiques', value: `${Number(stats.critical_damage ?? 150).toFixed(1)}%`, icon: <Zap size={24} />, color: '#e74c3c' }
     ];
   };
 
-  // Calculer les statistiques de base
+  // Statistiques de base (issues de la DB/util côté serveur)
   const getBaseStats = () => {
-    if (!character) return [];
-    
-    // Calculer les stats principales en temps réel avec le système équilibré
-    const calculateRealTimeStats = () => {
-      const baseStatsDisplay = character.stats?.base_stats_display || {};
-      const secondaryStats = character.stats?.secondary_stats || {};
-      
-      const baseHealth = baseStatsDisplay.health || 100;
-      const baseMana = baseStatsDisplay.mana || 50;
-      
-      // Utiliser le même système que le dashboard (système équilibré)
-      const healthBonus = Math.round(secondaryStats.vitality * 2);
-      const manaBonus = Math.round(secondaryStats.wisdom * 1.5);
-      
-      const maxHealth = baseHealth + healthBonus;
-      const maxMana = baseMana + manaBonus;
-      
-      return {
-        maxHealth,
-        maxMana,
-        healthBonus,
-        manaBonus,
-        baseHealth,
-        baseMana
-      };
-    };
-    
-    const realTimeStats = calculateRealTimeStats();
-    
-    // Calcul d'une endurance fiable même si les champs bruts n'existent pas
-    const enduranceStat = (
-      character.stats?.secondary_stats?.endurance ??
-      character.endurance ??
-      10
-    );
-    const computedMaxStamina = Math.max(100, Math.round(100 + enduranceStat * 5));
-    const currentStamina = Math.min(
-      character.stamina ?? computedMaxStamina,
-      computedMaxStamina
-    );
-    
+    const stats = finalStats || character?.stats || character || {};
+    const health = Number(stats.health ?? character?.health ?? 0);
+    const maxHealth = Number(stats.max_health ?? character?.max_health ?? health);
+    const mana = Number(stats.mana ?? character?.mana ?? 0);
+    const maxMana = Number(stats.max_mana ?? character?.max_mana ?? mana);
     return [
-      { 
-        key: 'health', 
-        label: 'Santé', 
-        value: `${Math.min(character.health || 100, realTimeStats.maxHealth)}/${realTimeStats.maxHealth}`, 
-        icon: <Heart size={24} />, 
-        color: '#ff6b6b'
-      },
-      { 
-        key: 'mana', 
-        label: 'Mana', 
-        value: `${Math.min(character.mana || 80, realTimeStats.maxMana)}/${realTimeStats.maxMana}`, 
-        icon: <Zap size={24} />, 
-        color: '#667eea'
-      },
-      { 
-        key: 'stamina', 
-        label: 'Endurance', 
-        value: `${currentStamina}/${computedMaxStamina}`, 
-        icon: <Heart size={24} />, 
-        color: '#fdcb6e' 
-      }
+      { key: 'health', label: 'Santé', value: `${Math.min(health, maxHealth)}/${maxHealth}`, icon: <Heart size={24} />, color: '#ff6b6b' },
+      { key: 'mana', label: 'Mana', value: `${Math.min(mana, maxMana)}/${maxMana}`, icon: <Zap size={24} />, color: '#667eea' }
     ];
   };
 
-  // Calculer les stats principales (10 stats cohérentes)
+  // Stats principales: afficher les valeurs réelles de la DB (10 stats)
   const getMainStats = () => {
-    if (!character) {
-      console.log('CharacterOverview: No character data');
-      return [];
-    }
-    
-    const stats = character;
-    const secondaryStatsWithRanks = character.stats?.secondary_stats_with_ranks || {};
-    const baseStatsDisplay = character.stats?.base_stats_display || {};
-    
-    
-    // Calculer les bonus en temps réel à partir des stats secondaires (système équilibré)
-    const calculateRealTimeBonuses = () => {
-      const secondaryStats = character.stats?.secondary_stats || {};
-      return {
-        health_bonus: Math.round(secondaryStats.vitality * 2),
-        mana_bonus: Math.round(secondaryStats.wisdom * 1.5),
-        attack_bonus: Math.round(secondaryStats.strength * 1.2),
-        defense_bonus: Math.round(secondaryStats.endurance * 0.8),
-        magic_attack_bonus: Math.round(secondaryStats.intelligence * 1.0),
-        magic_defense_bonus: Math.round(secondaryStats.resistance * 0.6),
-        critical_rate_bonus: Math.round(secondaryStats.precision * 0.3 * 100) / 100,
-        critical_damage_bonus: Math.round(secondaryStats.precision * 0.5 * 100) / 100,
-        physical_power_bonus: Math.round(secondaryStats.strength * 2.0),
-        spell_power_bonus: Math.round(secondaryStats.intelligence * 1.8)
-      };
-    };
-    
-    const secondaryBonuses = calculateRealTimeBonuses();
-    
-    const result = [
-      { 
-        key: 'vitality', 
-        label: 'Vitalité', 
-        value: `+${secondaryBonuses.health_bonus} PV, +${((secondaryStatsWithRanks.vitality?.value || 10) * 0.1).toFixed(1)}/s`, 
-        icon: <Heart size={24} />, 
-        color: secondaryStatsWithRanks.vitality?.color || '#ff6b6b', 
-        rank: secondaryStatsWithRanks.vitality?.rank || 'F',
-        description: 'Vie maximale + Régénération de vie'
-      },
-      { 
-        key: 'strength', 
-        label: 'Force', 
-        value: `+${secondaryBonuses.attack_bonus} ATQ, +${secondaryBonuses.physical_power_bonus} PWR`, 
-        icon: <Sword size={24} />, 
-        color: secondaryStatsWithRanks.strength?.color || '#e74c3c', 
-        rank: secondaryStatsWithRanks.strength?.rank || 'F',
-        description: 'Attaque physique + Puissance physique'
-      },
-      { 
-        key: 'intelligence', 
-        label: 'Intelligence', 
-        value: `+${secondaryBonuses.magic_attack_bonus} MATQ, +${secondaryBonuses.spell_power_bonus} PWR`, 
-        icon: <Brain size={24} />, 
-        color: secondaryStatsWithRanks.intelligence?.color || '#9b59b6', 
-        rank: secondaryStatsWithRanks.intelligence?.rank || 'F',
-        description: 'Attaque magique + Mana + Puissance des sorts'
-      },
-      { 
-        key: 'agility', 
-        label: 'Agilité', 
-        value: `+${((secondaryStatsWithRanks.agility?.value || 10) * 0.3).toFixed(1)}% Esquive, +${((secondaryStatsWithRanks.agility?.value || 10) * 0.5).toFixed(1)}% Vitesse`, 
-        icon: <Zap size={24} />, 
-        color: secondaryStatsWithRanks.agility?.color || '#2ecc71', 
-        rank: secondaryStatsWithRanks.agility?.rank || 'F',
-        description: 'Esquive + Vitesse d\'attaque + Mouvement'
-      },
-      { 
-        key: 'resistance', 
-        label: 'Résistance', 
-        value: `+${secondaryBonuses.magic_defense_bonus} MDEF`, 
-        icon: <Shield size={24} />, 
-        color: secondaryStatsWithRanks.resistance?.color || '#3498db', 
-        rank: secondaryStatsWithRanks.resistance?.rank || 'F',
-        description: 'Défense magique + Résistance aux effets'
-      },
-      { 
-        key: 'precision', 
-        label: 'Précision', 
-        value: `+${((secondaryStatsWithRanks.precision?.value || 10) * 0.3).toFixed(1)}% Critique`, 
-        icon: <Target size={24} />, 
-        color: secondaryStatsWithRanks.precision?.color || '#f39c12', 
-        rank: secondaryStatsWithRanks.precision?.rank || 'F',
-        description: 'Taux de critique + Précision des attaques'
-      },
-      { 
-        key: 'endurance', 
-        label: 'Endurance', 
-        value: `+${secondaryBonuses.defense_bonus} DEF`, 
-        icon: <Heart size={24} />, 
-        color: secondaryStatsWithRanks.endurance?.color || '#8e44ad', 
-        rank: secondaryStatsWithRanks.endurance?.rank || 'F',
-        description: 'Défense physique + Résistance aux dégâts'
-      },
-      { 
-        key: 'wisdom', 
-        label: 'Sagesse', 
-        value: `+${((secondaryStatsWithRanks.wisdom?.value || 10) * 0.15).toFixed(1)}/s Mana`, 
-        icon: <Brain size={24} />, 
-        color: secondaryStatsWithRanks.wisdom?.color || '#1abc9c', 
-        rank: secondaryStatsWithRanks.wisdom?.rank || 'F',
-        description: 'Régénération de mana + Efficacité magique'
-      },
-      { 
-        key: 'constitution', 
-        label: 'Constitution', 
-        value: `+${((secondaryStatsWithRanks.constitution?.value || 10) * 0.28).toFixed(1)}% Blocage`, 
-        icon: <Shield size={24} />, 
-        color: secondaryStatsWithRanks.constitution?.color || '#e67e22', 
-        rank: secondaryStatsWithRanks.constitution?.rank || 'F',
-        description: 'Résistance aux effets + Chance de blocage'
-      },
-      { 
-        key: 'dexterity', 
-        label: 'Dextérité', 
-        value: `+${((secondaryStatsWithRanks.dexterity?.value || 10) * 0.2).toFixed(1)}% Esquive, +${((secondaryStatsWithRanks.dexterity?.value || 10) * 0.15).toFixed(1)}% Parade`, 
-        icon: <Target size={24} />, 
-        color: secondaryStatsWithRanks.dexterity?.color || '#27ae60', 
-        rank: secondaryStatsWithRanks.dexterity?.rank || 'F',
-        description: 'Précision avancée + Esquive + Parade'
-      }
+    const s = finalStats || character?.stats || character || {};
+    const rows = [
+      { key: 'vitality', label: 'Vitalité', icon: <Heart size={24} />, color: '#ff6b6b' },
+      { key: 'strength', label: 'Force', icon: <Sword size={24} />, color: '#e74c3c' },
+      { key: 'intelligence', label: 'Intelligence', icon: <Brain size={24} />, color: '#9b59b6' },
+      { key: 'agility', label: 'Agilité', icon: <Zap size={24} />, color: '#2ecc71' },
+      { key: 'resistance', label: 'Résistance', icon: <Shield size={24} />, color: '#3498db' },
+      { key: 'precision', label: 'Précision', icon: <Target size={24} />, color: '#f39c12' },
+      { key: 'endurance', label: 'Endurance', icon: <Heart size={24} />, color: '#8e44ad' },
+      { key: 'wisdom', label: 'Sagesse', icon: <Brain size={24} />, color: '#1abc9c' },
+      { key: 'constitution', label: 'Constitution', icon: <Shield size={24} />, color: '#e67e22' },
+      { key: 'dexterity', label: 'Dextérité', icon: <Target size={24} />, color: '#27ae60' }
     ];
-    
-    return result;
+    return rows.map(r => ({
+      ...r,
+      value: Number(s[r.key] ?? 0)
+    }));
   };
 
   // Gestion des états de chargement et d'erreur
@@ -298,12 +137,12 @@ const CharacterOverview = ({
                   <div 
                     className="overview-exp-fill" 
                     style={{ 
-                      width: `${Math.min((character.experience / character.experience_to_next) * 100, 100)}%` 
+                      width: `${Math.min(((Number(character.experience) || 0) / (Number(character.experience_to_next) || 1)) * 100, 100)}%` 
                     }}
                   ></div>
                 </div>
-                <span>{character.experience} / {character.experience_to_next} EXP</span>
-                {character.experience > character.experience_to_next && (
+                <span>{Number(character.experience) || 0} / {Number(character.experience_to_next) || 0} EXP</span>
+                {Number(character.experience) > Number(character.experience_to_next) && (
                   <button 
                     className="overview-fix-exp-button"
                     onClick={async () => {
@@ -311,7 +150,7 @@ const CharacterOverview = ({
                         const response = await fetch(`/api/characters/${character.id}/fix-experience`, {
                           method: 'POST',
                           headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
                           }
                         });
                         

@@ -65,8 +65,26 @@ const Inventory = () => {
         const characterNormalized = characterData.character || characterData;
         setCharacter(characterNormalized);
         // Charger l'inventaire avec l'ID du personnage
-        const items = await databaseService.getCharacterInventory(characterNormalized.id);
-        setInventory(items);
+        let items = await databaseService.getCharacterInventory(characterNormalized.id);
+        // Normaliser pour garantir un tableau et clés attendues
+        if (!Array.isArray(items)) {
+          items = [];
+        }
+        const normalized = items.map((it) => ({
+          id: it.id || it.item_id,
+          item_name: it.item_name || it.name,
+          item_display_name: it.item_display_name || it.display_name || it.item_name || it.name,
+          item_description: it.item_description || it.description || '',
+          item_type: it.item_type || it.item_type_name || it.type || it.equip_slot || 'misc',
+          item_level: it.level_requirement || it.item_level || 1,
+          rarity_name: it.rarity_name || it.rarity || 'common',
+          rarity_color: it.rarity_color || '#7f8c8d',
+          equip_slot: it.equipped_slot || null,
+          equipped: !!it.equipped,
+          quantity: it.quantity || 1,
+          item_stats: it.item_stats || it.item_base_stats || it.base_stats || {}
+        }));
+        setInventory(normalized);
       }
     } catch (err) {
       console.error('Erreur lors du chargement de l\'inventaire:', err);
@@ -193,7 +211,7 @@ const Inventory = () => {
           <span>•</span>
           <span>{character.experience} / {character.experience_to_next} EXP</span>
           <span>•</span>
-          <span>Classe: {character.class_display_name}</span>
+          <span>Classe: {character.class_display_name || character.class_name || (character.class && (character.class.display_name || character.class.name)) || 'Inconnue'}</span>
         </div>
       </motion.div>
 

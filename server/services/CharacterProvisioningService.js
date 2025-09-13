@@ -7,10 +7,31 @@ class CharacterProvisioningService {
   }
 
   async resolveClassId(className = 'warrior') {
-    const res = await this.pool.query('SELECT id, name, base_stats FROM character_classes WHERE name = $1', [className]);
-    if (res.rows.length > 0) return { id: res.rows[0].id, base_stats: res.rows[0].base_stats };
-    const fallback = await this.pool.query('SELECT id, name, base_stats FROM character_classes ORDER BY id LIMIT 1');
-    return { id: fallback.rows[0].id, base_stats: fallback.rows[0].base_stats };
+    const res = await this.pool.query('SELECT id, name, stat_ranges FROM character_classes WHERE name = $1', [className]);
+    if (res.rows.length > 0) return { id: res.rows[0].id, stat_ranges: res.rows[0].stat_ranges };
+    const fallback = await this.pool.query('SELECT id, name, stat_ranges FROM character_classes ORDER BY id LIMIT 1');
+    return { id: fallback.rows[0].id, stat_ranges: fallback.rows[0].stat_ranges };
+  }
+
+  generateStatsFromRanges(statRanges = {}) {
+    const randIn = (k, defMin, defMax) => {
+      const r = statRanges?.[k];
+      if (Array.isArray(r) && r.length === 2) {
+        const min = Number(r[0]);
+        const max = Number(r[1]);
+        return Math.floor(min + Math.random() * (max - min + 1));
+      }
+      // fallback simple
+      return Math.floor((defMin + defMax) / 2);
+    };
+    return {
+      health: randIn('health', 100, 150),
+      mana: randIn('mana', 40, 80),
+      attack: randIn('attack', 10, 20),
+      defense: randIn('defense', 10, 20),
+      magic_attack: randIn('magic_attack', 8, 16),
+      magic_defense: randIn('magic_defense', 8, 16)
+    };
   }
 
   buildInitialStats(base) {
@@ -66,8 +87,9 @@ class CharacterProvisioningService {
         return existing.rows[0];
       }
 
-      const { id: classId, base_stats } = await this.resolveClassId(className);
-      const initial = this.buildInitialStats(base_stats);
+      const { id: classId, stat_ranges } = await this.resolveClassId(className);
+      const sampledBase = this.generateStatsFromRanges(stat_ranges || {});
+      const initial = this.buildInitialStats(sampledBase);
       const name = characterName && characterName.length >= 3 ? characterName : `hero_${userId}`;
 
       const charInsert = await client.query(`
@@ -123,6 +145,9 @@ class CharacterProvisioningService {
         [character.id]
       );
       const finalStats = CharacterStats.calculateFinalStats(initial, equipped.rows || []);
+      // Pour un nouveau personnage: démarrer plein PV/Mana
+      finalStats.health = finalStats.max_health;
+      finalStats.mana = finalStats.max_mana;
       await CharacterStats.updateCharacterStats(client, character.id, finalStats);
 
       await client.query('COMMIT');

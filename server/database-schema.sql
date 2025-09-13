@@ -65,6 +65,7 @@ CREATE TABLE character_classes (
     probability DECIMAL(5,4) NOT NULL DEFAULT 0.9800 CHECK (probability > 0 AND probability <= 1),
     base_stats JSONB NOT NULL DEFAULT '{}',
     stat_ranges JSONB NOT NULL DEFAULT '{}',
+    unique_perk JSONB DEFAULT NULL,
     starting_equipment JSONB DEFAULT '[]',
     icon VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -558,7 +559,7 @@ BEGIN
         FROM character_inventory ci
         JOIN items i ON ci.item_id = i.id
         CROSS JOIN LATERAL jsonb_each_text(i.base_stats)
-        WHERE ci.character_id = character_id AND ci.equipped = true
+        WHERE ci.character_id = calculate_character_stats.character_id AND ci.equipped = true
         GROUP BY key
     ) equipment;
     

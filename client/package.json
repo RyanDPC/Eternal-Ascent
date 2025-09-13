@@ -17,22 +17,23 @@
     "build-mobile": "react-scripts build && npx cap add android && npx cap add ios"
   },
   "dependencies": {
+    "concurrently": "^8.0.1",
+    "electron": "^25.0.0",
+    "es-abstract": "^1.24.0",
+    "framer-motion": "^10.12.16",
+    "lucide-react": "^0.263.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.8.1",
     "react-scripts": "5.0.1",
-    "framer-motion": "^10.12.16",
-    "lucide-react": "^0.263.1",
-    "electron": "^25.0.0",
-    "concurrently": "^8.0.1",
     "wait-on": "^7.0.1"
   },
   "devDependencies": {
-    "electron-builder": "^24.6.4",
+    "@capacitor/android": "^5.4.0",
     "@capacitor/cli": "^5.4.0",
     "@capacitor/core": "^5.4.0",
-    "@capacitor/android": "^5.4.0",
-    "@capacitor/ios": "^5.4.0"
+    "@capacitor/ios": "^5.4.0",
+    "electron-builder": "^24.6.4"
   },
   "browserslist": {
     "production": [

@@ -46,7 +46,7 @@ const config = {
     refreshTtl: env.JWT_REFRESH_TTL || '7d'
   },
   cors: {
-    origins: env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://localhost:3001']
+    origins: env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001']
   },
   admin: { token: env.ADMIN_TOKEN }
 };

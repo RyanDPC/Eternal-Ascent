@@ -151,6 +151,18 @@ class DatabaseService {
     }
   }
 
+  // Alias compat pour anciens composants (Inventory.jsx)
+  async getCharacterInventory(characterId) {
+    try {
+      // Utiliser l'endpoint optimisé qui retourne l'inventaire intégré au personnage
+      const res = await this.getCurrentCharacterData();
+      return (res && res.character && Array.isArray(res.character.inventory)) ? res.character.inventory : [];
+    } catch (error) {
+      console.error('Erreur lors du chargement de l\'inventaire (compat):', error);
+      throw error;
+    }
+  }
+
   async updateInventory(characterId, inventoryData) {
     try {
       return await this.authenticatedRequest(`/characters/${characterId}/inventory`, {
@@ -166,8 +178,8 @@ class DatabaseService {
   async equipItem(characterId, itemId, slot) {
     try {
       return await this.authenticatedRequest(`/characters/${characterId}/equip`, {
-        method: 'POST',
-        body: JSON.stringify({ itemId, slot })
+        method: 'PUT',
+        body: JSON.stringify({ item_id: itemId, slot })
       });
     } catch (error) {
       console.error('Erreur lors de l\'équipement:', error);
@@ -175,11 +187,11 @@ class DatabaseService {
     }
   }
 
-  async unequipItem(characterId, slot) {
+  async unequipItem(characterId, itemId) {
     try {
       return await this.authenticatedRequest(`/characters/${characterId}/unequip`, {
-        method: 'POST',
-        body: JSON.stringify({ slot })
+        method: 'PUT',
+        body: JSON.stringify({ item_id: itemId })
       });
     } catch (error) {
       console.error('Erreur lors du déséquipement:', error);
@@ -193,6 +205,26 @@ class DatabaseService {
       return await this.authenticatedRequest('/dungeons');
     } catch (error) {
       console.error('Erreur lors du chargement des donjons:', error);
+      throw error;
+    }
+  }
+
+  async getAvailableDungeons() {
+    try {
+      const res = await this.authenticatedRequest('/static/dungeons');
+      return Array.isArray(res?.dungeons) ? res.dungeons : (Array.isArray(res) ? res : []);
+    } catch (error) {
+      console.error('Erreur lors du chargement des donjons (static):', error);
+      throw error;
+    }
+  }
+
+  async getDifficulties() {
+    try {
+      const res = await this.authenticatedRequest('/static/difficulties');
+      return Array.isArray(res?.difficulties) ? res.difficulties : (Array.isArray(res) ? res : []);
+    } catch (error) {
+      console.error('Erreur lors du chargement des difficultés:', error);
       throw error;
     }
   }
@@ -273,12 +305,67 @@ class DatabaseService {
     }
   }
 
-  // ===== GUILDES =====
-  async getGuilds() {
+  // ===== NOUVELLES APIs COMPAT /static =====
+  async getCurrentCharacterData() {
     try {
-      return await this.authenticatedRequest('/guilds');
+      return await this.authenticatedRequest('/static/character');
+    } catch (error) {
+      console.error('Erreur lors du chargement du personnage (static):', error);
+      throw error;
+    }
+  }
+
+  async getAvailableQuests(limit) {
+    try {
+      const res = await this.authenticatedRequest('/static/quests');
+      return Array.isArray(res) ? res : (res && res.quests) ? res.quests : [];
+    } catch (error) {
+      console.error('Erreur lors du chargement des quêtes (static):', error);
+      throw error;
+    }
+  }
+
+  async updateQuestProgress(payload) {
+    try {
+      // Journaliser l'événement comme activité côté serveur pour garder une trace
+      await this.authenticatedRequest('/activity/log', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: `quest_${payload?.status || 'update'}`,
+          description: `Quest ${payload?.quest_id} ${payload?.status || 'update'}`,
+          metadata: payload || {}
+        })
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de progression de quête:', error);
+      throw error;
+    }
+  }
+
+  // ===== GUILDES =====
+  async getGuilds({ search, limit, offset } = {}) {
+    try {
+      const params = new URLSearchParams();
+      if (search && String(search).trim().length) params.set('search', String(search).trim());
+      if (limit) params.set('limit', String(limit));
+      if (offset) params.set('offset', String(offset));
+      const qs = params.toString();
+      return await this.authenticatedRequest(`/guilds${qs ? `?${qs}` : ''}`);
     } catch (error) {
       console.error('Erreur lors du chargement des guildes:', error);
+      throw error;
+    }
+  }
+
+  async generateDynamicGuilds(count = 3) {
+    try {
+      return await this.authenticatedRequest('/guilds/generate-dynamic', {
+        method: 'POST',
+        body: JSON.stringify({ count })
+      });
+    } catch (error) {
+      console.error('Erreur lors de la génération de guildes dynamiques:', error);
       throw error;
     }
   }
@@ -304,25 +391,101 @@ class DatabaseService {
     }
   }
 
-  async joinGuild(characterId, guildId) {
+  async joinGuild(guildId, characterId) {
     try {
-      return await this.authenticatedRequest(`/characters/${characterId}/guild/join`, {
-        method: 'POST',
-        body: JSON.stringify({ guildId })
-      });
+      return await this.authenticatedRequest(`/guilds/${guildId}/join`, { method: 'POST', body: JSON.stringify({ characterId }) });
     } catch (error) {
       console.error('Erreur lors de l\'adhésion à la guilde:', error);
       throw error;
     }
   }
 
-  async leaveGuild(characterId) {
+  async leaveGuild(guildId, characterId) {
     try {
-      return await this.authenticatedRequest(`/characters/${characterId}/guild/leave`, {
-        method: 'POST'
-      });
+      return await this.authenticatedRequest(`/guilds/${guildId}/leave`, { method: 'POST', body: JSON.stringify({ characterId }) });
     } catch (error) {
       console.error('Erreur lors de la sortie de la guilde:', error);
+      throw error;
+    }
+  }
+
+  async getCharacterGuild(characterId) {
+    try {
+      return await this.authenticatedRequest(`/characters/${characterId}/guild`);
+    } catch (error) {
+      console.error('Erreur lors du chargement de la guilde du personnage:', error);
+      throw error;
+    }
+  }
+
+  async getGuildRaids(guildId) {
+    try {
+      return await this.authenticatedRequest(`/guilds/${guildId}/raids`);
+    } catch (error) {
+      console.error('Erreur lors du chargement des raids de guilde:', error);
+      throw error;
+    }
+  }
+
+  async startGuildRaid(guildId, raidData) {
+    try {
+      return await this.authenticatedRequest(`/guilds/${guildId}/raids`, { method: 'POST', body: JSON.stringify(raidData) });
+    } catch (error) {
+      console.error('Erreur lors du démarrage du raid de guilde:', error);
+      throw error;
+    }
+  }
+
+  async joinGuildRaid(raidId, characterId) {
+    try {
+      return await this.authenticatedRequest(`/raids/${raidId}/join`, { method: 'POST', body: JSON.stringify({ characterId }) });
+    } catch (error) {
+      console.error('Erreur lors de l\'adhésion au raid de guilde:', error);
+      throw error;
+    }
+  }
+
+  async getGuildProjects(guildId) {
+    try {
+      return await this.authenticatedRequest(`/guilds/${guildId}/projects`);
+    } catch (error) {
+      console.error('Erreur lors du chargement des projets de guilde:', error);
+      throw error;
+    }
+  }
+
+  async startGuildProject(guildId, projectData) {
+    try {
+      return await this.authenticatedRequest(`/guilds/${guildId}/projects`, { method: 'POST', body: JSON.stringify(projectData) });
+    } catch (error) {
+      console.error('Erreur lors du démarrage du projet de guilde:', error);
+      throw error;
+    }
+  }
+
+  async contributeToGuildProject(projectId, contribution, characterId) {
+    try {
+      return await this.authenticatedRequest(`/projects/${projectId}/contribute`, { method: 'POST', body: JSON.stringify({ amount: contribution, characterId }) });
+    } catch (error) {
+      console.error('Erreur lors de la contribution au projet de guilde:', error);
+      throw error;
+    }
+  }
+
+  async getGuildEvents(guildId) {
+    try {
+      return await this.authenticatedRequest(`/guilds/${guildId}/events`);
+    } catch (error) {
+      console.error('Erreur lors du chargement des événements de guilde:', error);
+      throw error;
+    }
+  }
+
+  async createGuildEvent(guildId, eventData) {
+    try {
+      return await this.authenticatedRequest(`/guilds/${guildId}/events`, { method: 'POST', body: JSON.stringify(eventData) });
+    } catch (error) {
+      console.error('Erreur lors de la création de l\'événement de guilde:', error);
       throw error;
     }
   }
@@ -401,6 +564,40 @@ class DatabaseService {
       return await this.authenticatedRequest(`/characters/${characterId}/stats`);
     } catch (error) {
       console.error('Erreur lors du chargement des statistiques:', error);
+      throw error;
+    }
+  }
+
+  // ===== DONNÉES POUR GAMEPAGE =====
+  async getEnemies(params = {}) {
+    try {
+      const qs = new URLSearchParams();
+      if (params.type) qs.set('type', String(params.type));
+      if (params.level_min) qs.set('level_min', String(params.level_min));
+      if (params.level_max) qs.set('level_max', String(params.level_max));
+      if (params.rarity) qs.set('rarity', String(params.rarity));
+      const res = await this.authenticatedRequest(`/static/enemies${qs.toString() ? `?${qs.toString()}` : ''}`);
+      return Array.isArray(res?.enemies) ? res.enemies : (Array.isArray(res) ? res : []);
+    } catch (error) {
+      console.error('Erreur lors du chargement des ennemis (static):', error);
+      throw error;
+    }
+  }
+
+  async getSkillsByClass(className) {
+    try {
+      const res = await this.authenticatedRequest('/static/skills');
+      const all = Array.isArray(res?.skills) ? res.skills : (Array.isArray(res) ? res : []);
+      if (!className) return all;
+      const cls = String(className).toLowerCase();
+      const filtered = all.filter(s => {
+        const sc = (s.class || '').toLowerCase();
+        const avail = Array.isArray(s.available_classes) ? s.available_classes.map(c => String(c).toLowerCase()) : [];
+        return sc === cls || avail.includes(cls);
+      });
+      return filtered.sort((a, b) => (a.level_requirement || 0) - (b.level_requirement || 0));
+    } catch (error) {
+      console.error('Erreur lors du chargement des compétences par classe (static):', error);
       throw error;
     }
   }

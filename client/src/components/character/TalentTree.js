@@ -8,11 +8,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import databaseService from '../../services/databaseService';
 import './TalentTree.css';
 
-const TalentTree = () => {
+const TalentTree = ({ character: characterProp, tree }) => {
   const { user } = useAuth();
-  const [character, setCharacter] = useState(null);
+  const [character, setCharacter] = useState(characterProp || null);
   const [talentTrees, setTalentTrees] = useState([]);
-  const [selectedTree, setSelectedTree] = useState(null);
+  const [selectedTree, setSelectedTree] = useState(tree || null);
   const [learnedTalents, setLearnedTalents] = useState([]);
   const [availablePoints, setAvailablePoints] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -20,6 +20,19 @@ const TalentTree = () => {
 
   // Charger les données
   useEffect(() => {
+    // If props provide everything, use them directly
+    if (characterProp && tree) {
+      setCharacter(characterProp);
+      setSelectedTree(tree);
+      const learned = characterProp.learned_talents || [];
+      setLearnedTalents(learned);
+      const spentPoints = learned.length;
+      const totalPoints = Math.floor((characterProp.level || 1) / 2);
+      setAvailablePoints(Math.max(0, totalPoints - spentPoints));
+      setLoading(false);
+      return;
+    }
+
     const loadTalentData = async () => {
       try {
         setLoading(true);
@@ -60,7 +73,7 @@ const TalentTree = () => {
     };
 
     loadTalentData();
-  }, [user]);
+  }, [user, characterProp, tree]);
 
   // Apprendre un talent
   const learnTalent = async (talentId) => {
